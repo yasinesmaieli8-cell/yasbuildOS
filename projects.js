@@ -113,6 +113,13 @@
     render();
     setMessage('فهرست پروژه‌ها از تغییرات پنجره دیگر به‌روزرسانی شد.');
   });
+  window.addEventListener('yasbuildos-projects-updated', () => {
+    const updated = read();
+    if (updated === null) return;
+    projects = updated;
+    if (editing) reset();
+    render();
+  });
   byId('projectCancel').addEventListener('click', () => { reset(); setMessage('ویرایش لغو شد.'); });
   form.addEventListener('submit', event => {
     event.preventDefault();
