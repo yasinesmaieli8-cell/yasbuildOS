@@ -106,9 +106,11 @@
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn secondary sm'; remove.textContent = 'حذف'; remove.setAttribute('aria-label','حذف پروژه ' + p.name);
         remove.addEventListener('click', async () => {
           if (!confirm(`پروژه «${p.name}» و محاسبات وابسته به آن به‌طور دائمی حذف شود؟`)) return;
-          const { error } = await client.from('yb_projects').delete().eq('id',p.id);
-          if (error) { projectMessage('حذف پروژه انجام نشد.'); return; }
-          if (editingId === p.id) resetProject(); await loadProjects();
+          try {
+            const { data, error } = await client.from('yb_projects').delete().eq('id',p.id).select('id');
+            if (error || !data || data.length !== 1) { projectMessage('حذف انجام نشد؛ پروژه وجود ندارد یا دسترسی شما تغییر کرده است.'); return; }
+            if (editingId === p.id) resetProject(); await loadProjects();
+          } catch (_) { projectMessage('حذف پروژه انجام نشد؛ اتصال اینترنت را بررسی کنید.'); }
         });
         const calculations = document.createElement('details');
         const summary = document.createElement('summary'); summary.textContent = 'محاسبات ذخیره‌شده'; calculations.appendChild(summary);
@@ -188,8 +190,8 @@
     const values = { name, city: field('cloudProjectCity'), project_type: el('cloudProjectType').value, status: el('cloudProjectStatus').value, area: area === '' ? null : Number(area), budget };
     el('cloudProjectSave').disabled = true;
     try {
-      const { error } = editingId ? await client.from('yb_projects').update(values).eq('id',editingId) : await client.from('yb_projects').insert(values);
-      if (error) { projectMessage('ذخیره پروژه انجام نشد؛ داده‌ها و اتصال را بررسی کنید.'); return; }
+      const result = editingId ? await client.from('yb_projects').update(values).eq('id',editingId).select('id') : await client.from('yb_projects').insert(values).select('id');
+      if (result.error || !result.data || result.data.length !== 1) { projectMessage('ذخیره انجام نشد؛ اطلاعات، دسترسی یا اتصال را بررسی کنید.'); return; }
       resetProject(); await loadProjects();
     } catch (_) { projectMessage('ذخیره پروژه انجام نشد.'); }
     finally { el('cloudProjectSave').disabled = false; }
