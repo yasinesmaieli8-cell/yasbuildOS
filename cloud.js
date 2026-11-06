@@ -11,6 +11,20 @@
   let currentUser = null;
   let editingId = null;
   let requestNumber = 0;
+  window.yasCloud = {
+    async projects() {
+      if (!currentUser) throw new Error('login');
+      const userId = currentUser.id;
+      const { data, error } = await client.from('yb_projects').select('id,name').order('created_at', { ascending: false });
+      if (error || currentUser?.id !== userId) throw error || new Error('session changed');
+      return data;
+    },
+    async saveCalculation(projectId, record) {
+      if (!currentUser) throw new Error('login');
+      const { error } = await client.from('yb_calculations').insert({ project_id: projectId, tool_name: record.tool, title: record.tool, inputs: record.inputs, outputs: record.outputs });
+      if (error) throw error;
+    }
+  };
   const showError = (error, fallback) => {
     if (error?.status === 429) return 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.';
     if (error?.status === 400 || error?.status === 401) return fallback;
@@ -32,6 +46,12 @@
     el('topname').textContent = user ? (user.email || 'کاربر') : 'مهمان';
     el('toprole').textContent = user ? 'حساب کاربری' : 'بدون نشست';
     el('cloudProjectList').replaceChildren();
+    for (const prefix of ['runner', 'stair']) {
+      const select = el(prefix + 'CloudProject');
+      select.replaceChildren();
+      const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'انتخاب پروژه ابری'; select.appendChild(placeholder);
+      el(prefix + 'CloudMessage').textContent = '';
+    }
     resetProject();
     if (user) loadProjects();
   }
@@ -90,12 +110,74 @@
           if (error) { projectMessage('حذف پروژه انجام نشد.'); return; }
           if (editingId === p.id) resetProject(); await loadProjects();
         });
-        actions.append(edit,remove); card.appendChild(actions); list.appendChild(card);
+        const calculations = document.createElement('details');
+        const summary = document.createElement('summary'); summary.textContent = 'محاسبات ذخیره‌شده'; calculations.appendChild(summary);
+        const results = document.createElement('div'); calculations.appendChild(results);
+        calculations.addEventListener('toggle', async () => {
+          if (!calculations.open) return;
+          results.textContent = 'در حال دریافت…';
+          try {
+            const { data, error } = await client.from('yb_calculations').select('tool_name,inputs,outputs,created_at').eq('project_id', p.id).order('created_at', { ascending:false });
+            if (error) throw error;
+            results.replaceChildren();
+            if (!data.length) results.textContent = 'هنوز محاسبه‌ای ذخیره نشده است.';
+            for (const entry of data) {
+              const record = document.createElement('div'); record.className = 'project-item';
+              const title = document.createElement('h3'); title.textContent = entry.tool_name; record.appendChild(title);
+              const content = document.createElement('pre'); content.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;direction:rtl;font:inherit';
+              content.textContent = JSON.stringify({ورودی‌ها:entry.inputs, نتایج:entry.outputs},null,2); record.appendChild(content); results.appendChild(record);
+            }
+          } catch (_) { results.textContent = 'دریافت محاسبات انجام نشد.'; }
+        });
+        actions.append(edit,remove); card.appendChild(actions); card.appendChild(calculations); list.appendChild(card);
       }
     } catch (_) { if (request === requestNumber) projectMessage('دریافت پروژه‌ها انجام نشد.'); }
   }
   el('cloudProjectCancel').addEventListener('click', resetProject);
   el('cloudRefresh').addEventListener('click', loadProjects);
+  el('cloudImportLocal').addEventListener('click', async () => {
+    const userId = currentUser?.id;
+    if (!userId) return;
+    let local;
+    try {
+      const raw = localStorage.getItem('yasbuildos.projects.v1');
+      local = raw === null ? [] : JSON.parse(raw);
+      if (!Array.isArray(local) || local.length > 10000) throw new Error('invalid');
+    } catch (_) { projectMessage('پروژه‌های محلی خوانده نشدند؛ ابتدا فایل پشتیبان را بررسی کنید.'); return; }
+    if (!local.length) { projectMessage('در این مرورگر پروژه محلی برای انتقال وجود ندارد.'); return; }
+    if (!confirm(`از ${local.length.toLocaleString('fa-IR')} پروژه محلی، یک نسخه در حساب ابری ایجاد شود؟ پروژه‌های محلی حذف نمی‌شوند و مواردی که قبلاً منتقل شده‌اند تغییر نمی‌کنند.`)) return;
+    const valid = p => p && typeof p.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id)
+      && typeof p.name === 'string' && p.name.trim().length > 0 && p.name.length <= 100
+      && typeof p.city === 'string' && p.city.length <= 100
+      && ['', 'مسکونی', 'ویلایی', 'تجاری', 'بازسازی', 'سایر'].includes(p.type)
+      && ['برنامه‌ریزی', 'در حال اجرا', 'متوقف', 'پایان‌یافته'].includes(p.status)
+      && (p.area === null || (typeof p.area === 'number' && Number.isFinite(p.area) && p.area >= 0 && p.area <= 1000000000))
+      && (p.budget === null || (typeof p.budget === 'number' && Number.isFinite(p.budget) && p.budget >= 0 && p.budget <= 1000000000000000));
+    el('cloudImportLocal').disabled = true;
+    let added = 0, skipped = 0, failed = 0;
+    try {
+      const { data, error } = await client.from('yb_projects').select('id');
+      if (error || currentUser?.id !== userId) throw new Error('unavailable');
+      const known = new Set(data.map(p => p.id));
+      for (const p of local) {
+        if (currentUser?.id !== userId) { failed += local.length - added - skipped - failed; break; }
+        if (!valid(p)) { failed++; continue; }
+        const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('yasbuildos-import-v1:' + userId + ':' + p.id)));
+        bytes[6] = (bytes[6] & 15) | 128; bytes[8] = (bytes[8] & 63) | 128;
+        const hex = Array.from(bytes.slice(0, 16), b => b.toString(16).padStart(2, '0')).join('');
+        const id = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+        if (known.has(id)) { skipped++; continue; }
+        const row = { id, name:p.name.trim(), city:p.city, project_type:p.type, area:p.area, budget:p.budget, status:p.status };
+        const result = await client.from('yb_projects').insert(row);
+        if (result.error) failed++; else { added++; known.add(id); }
+      }
+      if (currentUser?.id === userId) {
+        await loadProjects();
+        projectMessage(`${added.toLocaleString('fa-IR')} پروژه منتقل شد؛ ${skipped.toLocaleString('fa-IR')} مورد تکراری و ${failed.toLocaleString('fa-IR')} مورد ناموفق بود. نسخه‌های محلی باقی ماندند.`);
+      }
+    } catch (_) { projectMessage(`انتقال کامل نشد؛ ${added.toLocaleString('fa-IR')} پروژه منتقل شد. ارتباط را بررسی و دوباره تلاش کنید؛ نسخه محلی تغییری نکرده است.`); }
+    finally { el('cloudImportLocal').disabled = false; }
+  });
   el('cloudProjectForm').addEventListener('submit', async event => {
     event.preventDefault();
     if (!currentUser || !el('cloudProjectForm').reportValidity()) return;
@@ -115,7 +197,7 @@
   client.auth.onAuthStateChange((event, session) => {
     queueMicrotask(() => {
       renderUser(session?.user || null);
-      if (event === 'PASSWORD_RECOVERY') { el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد کنید.'); }
+      if (event === 'PASSWORD_RECOVERY') { document.querySelector('[data-tab="auth"]').click(); el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد کنید.'); }
     });
   });
   el('cloudPasswordChange').addEventListener('submit', async event => {

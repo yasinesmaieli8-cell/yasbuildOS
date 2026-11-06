@@ -32,12 +32,13 @@ function openUnitConverter(){
   group.innerHTML=Object.keys(unitGroups).map(name=>`<option>${name}</option>`).join('');
   let last=null;
   function update(){
-    last=null;
+    last=null; window.ybCurrentResult=null;
     if(input.value==='' || !input.validity.valid){$('runnerCards').textContent='مقدار معتبر وارد کنید.';return}
     try{
       const value=Number(input.value),result=convertUnit(group.value,from.value,to.value,value),factor=convertUnit(group.value,from.value,to.value,1);
       const number=new Intl.NumberFormat('fa-IR',{maximumSignificantDigits:10});
       last={کمیت:group.value,مقدار:value,مبدأ:from.value,مقصد:to.value,نتیجه:result,ضریب:factor,مبنا:unitGroups[group.value].base,منبع:'NIST SP 811 Appendix B'};
+      window.ybCurrentResult={tool:'تبدیل واحدهای مهندسی',inputs:{کمیت:group.value,مقدار:value,مبدأ:from.value,مقصد:to.value},outputs:{نتیجه:result,ضریب:factor,مبنا:unitGroups[group.value].base}};
       $('runnerCards').innerHTML=`<div class="result-card"><small>نتیجه (${to.value})</small><b>${number.format(result)}</b></div><div class="result-card"><small>ضریب تبدیل مبدأ به مقصد</small><b>${number.format(factor)}</b></div>`;
     }catch(error){$('runnerCards').textContent=error.message}
   }
