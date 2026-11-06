@@ -197,14 +197,20 @@
   client.auth.onAuthStateChange((event, session) => {
     queueMicrotask(() => {
       renderUser(session?.user || null);
+      if (event === 'SIGNED_OUT') { el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; }
       if (event === 'PASSWORD_RECOVERY') { document.querySelector('[data-tab="auth"]').click(); el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد کنید.'); }
     });
   });
   el('cloudPasswordChange').addEventListener('submit', async event => {
     event.preventDefault(); const password = el('cloudNewPassword').value;
     if (password.length < 8) { message('گذرواژه جدید باید دست‌کم ۸ نویسه باشد.'); return; }
-    const { error } = await client.auth.updateUser({ password });
-    if (error) message('تغییر گذرواژه انجام نشد؛ لینک بازیابی را دوباره درخواست کن.');
-    else { el('cloudNewPassword').value = ''; el('cloudPasswordChange').hidden = true; message('گذرواژه تغییر کرد.'); }
+    const button = el('cloudPasswordChange').querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      const { error } = await client.auth.updateUser({ password });
+      if (error) message('تغییر گذرواژه انجام نشد؛ لینک بازیابی را دوباره درخواست کن.');
+      else { el('cloudNewPassword').value = ''; el('cloudPasswordChange').hidden = true; message('گذرواژه تغییر کرد.'); }
+    } catch (_) { message('ارتباط با سرویس برقرار نشد؛ دوباره تلاش کن.'); }
+    finally { button.disabled = false; }
   });
 })();
