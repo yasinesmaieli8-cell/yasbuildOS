@@ -72,7 +72,7 @@
         byId('projectCity').value = project.city || '';
         byId('projectType').value = project.type || '';
         byId('projectArea').value = project.area ?? '';
-        byId('projectBudget').value = project.budget ?? '';
+        window.budgetInputs.projectBudget.set(project.budget);
         byId('projectStatus').value = project.status || 'برنامه‌ریزی';
         byId('projectSubmit').textContent = 'ذخیره تغییرات';
         byId('projectCancel').hidden = false;
@@ -127,9 +127,8 @@
     const name = byId('projectName').value.trim();
     const city = byId('projectCity').value.trim();
     const areaText = byId('projectArea').value;
-    const budgetText = byId('projectBudget').value;
     const area = areaText === '' ? null : Number(areaText);
-    const budget = budgetText === '' ? null : Number(budgetText);
+    const budget = window.budgetInputs.projectBudget.get();
     if (!name || (area !== null && (!Number.isFinite(area) || area < 0)) || (budget !== null && (!Number.isFinite(budget) || budget < 0))) {
       setMessage('نام پروژه و مقادیر معتبر و غیرمنفی وارد کنید.', true);
       return;

@@ -80,7 +80,7 @@
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn secondary sm'; edit.textContent = 'ویرایش'; edit.setAttribute('aria-label','ویرایش پروژه ' + p.name);
         edit.addEventListener('click', () => {
           editingId = p.id; el('cloudProjectName').value = p.name; el('cloudProjectCity').value = p.city; el('cloudProjectType').value = p.project_type;
-          el('cloudProjectArea').value = p.area ?? ''; el('cloudProjectBudget').value = p.budget ?? ''; el('cloudProjectStatus').value = p.status;
+          el('cloudProjectArea').value = p.area ?? ''; window.budgetInputs.cloudProjectBudget.set(p.budget); el('cloudProjectStatus').value = p.status;
           el('cloudProjectSave').textContent = 'ذخیره تغییرات'; el('cloudProjectCancel').hidden = false; el('cloudProjectName').focus();
         });
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn secondary sm'; remove.textContent = 'حذف'; remove.setAttribute('aria-label','حذف پروژه ' + p.name);
@@ -101,8 +101,9 @@
     if (!currentUser || !el('cloudProjectForm').reportValidity()) return;
     const name = field('cloudProjectName');
     if (!name) { projectMessage('نام پروژه را وارد کنید.'); return; }
-    const area = el('cloudProjectArea').value, budget = el('cloudProjectBudget').value;
-    const values = { name, city: field('cloudProjectCity'), project_type: el('cloudProjectType').value, status: el('cloudProjectStatus').value, area: area === '' ? null : Number(area), budget: budget === '' ? null : Number(budget) };
+    const area = el('cloudProjectArea').value, budget = window.budgetInputs.cloudProjectBudget.get();
+    if (budget !== null && !Number.isFinite(budget)) { projectMessage('مبلغ بودجه معتبر نیست.'); return; }
+    const values = { name, city: field('cloudProjectCity'), project_type: el('cloudProjectType').value, status: el('cloudProjectStatus').value, area: area === '' ? null : Number(area), budget };
     el('cloudProjectSave').disabled = true;
     try {
       const { error } = editingId ? await client.from('yb_projects').update(values).eq('id',editingId) : await client.from('yb_projects').insert(values);
