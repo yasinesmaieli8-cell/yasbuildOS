@@ -75,6 +75,21 @@
     if(save({...all,[selected]:{...s,items}})){resetForm();msg('ردیف ذخیره شد.');render();}
   };
   $('checkExport').onclick=()=>{if(!selected)return; const p=projects.find(x=>x.id===selected), payload={version:1,project:p,checklist:state(),exportedAt:new Date().toISOString()};const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $('checkTemplate').onclick=()=>{
+    if(!selected)return;
+    const current=state();
+    if(current.items.length&&!confirm('مراحل نمونه به ردیف‌های فعلی اضافه شوند؟'))return;
+    const items=stages.map(stage=>({id:crypto.randomUUID(),name:stage,stage,quantity:1,unit:'مرحله',unitPrice:null,extra:0,status:'برآورد',paid:0,source:'',date:'',done:false}));
+    if(save({...all,[selected]:{...current,items:[...current.items,...items]}})){msg('مراحل نمونه اضافه شدند؛ مقادیر و قیمت‌ها را متناسب با پروژه ویرایش کنید.');render();}
+  };
+  $('checkCsv').onclick=()=>{
+    if(!selected)return;
+    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const rows=[['فعالیت','مرحله','مقدار','واحد','قیمت واحد تومان','هزینه اضافی تومان','برآورد تومان','وضعیت هزینه','پرداخت یا تعهد تومان','انجام شده','منبع','تاریخ قیمت']];
+    for(const item of state().items)rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.paid,item.done?'بله':'خیر',item.source,item.date]);
+    const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('گزارش CSV ساخته شد.');
+  };
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
   document.querySelector('[data-tab="checklist"]').addEventListener('click',refreshProjects);
   refreshProjects();
