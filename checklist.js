@@ -34,13 +34,18 @@
     const box=$('checkContent'); box.hidden=!selected; if(!selected) return;
     const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[];
     $('checkReserve').value=s.reserve || '';
-    let estimate=0, spent=0, committed=0, missing=0, done=0, shown=0;
+    let estimate=0, pricedBase=0, spent=0, committed=0, missing=0, done=0, shown=0, stale=0, undated=0;
     const byStage=new Map();
     const search=$('checkSearch').value.trim(), filter=$('checkFilter').value;
     $('checkItems').replaceChildren();
     for (const item of items) {
       const cost=item.unitPrice===null?null:item.quantity*item.unitPrice+item.extra;
       if(cost===null) missing++; else estimate+=cost;
+      if(cost!==null){
+        pricedBase+=item.quantity*item.unitPrice;
+        if(!item.date) undated++;
+        else {const date=Date.parse(item.date+'T00:00:00Z'), today=new Date();const now=Date.UTC(today.getFullYear(),today.getMonth(),today.getDate());if(Number.isFinite(date)&&now-date>30*86400000)stale++;}
+      }
       if(item.status==='پرداخت‌شده') spent+=item.paid;
       if(item.status==='متعهدشده') committed+=item.paid;
       if(item.done) done++;
@@ -74,10 +79,13 @@
     $('checkSpent').textContent=money(spent); $('checkCommit').textContent=money(committed);
     $('checkBalance').textContent=budget===null?'بودجه ثبت نشده':money(budget-spent-committed-reserve);
     $('checkProgress').textContent=items.length?number(done/items.length*100)+'٪':'۰٪';
+    $('checkPriceAge').textContent=`${number(stale)} قیمت بیش از ۳۰ روز پیش ثبت شده و ${number(undated)} قیمت تاریخ ندارد. تاریخ و منبع را پیش از استفاده بررسی کنید.`;
+    const change=Number($('checkScenario').value);
+    $('checkScenarioResult').textContent=Number.isFinite(change)&&change>=-100&&change<=1000?`برآورد سناریو: ${money(estimate+pricedBase*change/100)}${missing?' + '+number(missing)+' قلم بدون قیمت':''}`:'درصد تغییر باید بین ۱۰۰- تا ۱۰۰۰ باشد.';
     $('checkWarning').textContent=budget!==null && (spent+committed+reserve>budget || estimate+reserve>budget)?'هشدار: مجموع برآورد یا هزینه‌ها با ذخیره احتیاطی از بودجه بیشتر است.':'';
   }
   $('checkProject').onchange=()=>{selected=$('checkProject').value;resetForm();render();};
-  $('checkSearch').oninput=render; $('checkFilter').onchange=render;
+  $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkScenario').oninput=render;
   $('checkReload').onclick=refreshProjects;
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=Number($('checkReserve').value);if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;

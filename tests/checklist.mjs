@@ -15,6 +15,7 @@ el('checkReserve').value='10000000';el('checkReserveSave').handlers.click();
 assert.equal(el('checkEstimate').textContent,'۲۰٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkBalance').textContent,'۷۵٬۰۰۰٬۰۰۰ تومان');
+el('checkScenario').value='10';el('checkScenario').oninput();assert.equal(el('checkScenarioResult').textContent,'برآورد سناریو: ۲۲٬۰۰۰٬۰۰۰ تومان');assert.ok(el('checkPriceAge').textContent.includes('۱ قیمت تاریخ ندارد'));
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,1);
 el('checkItems').children[0].children[2].children[0].handlers.click();
 assert.equal(el('checkProgress').textContent,'۱۰۰٪');
