@@ -36,7 +36,12 @@
     $('checkReserve').value=s.reserve || '';
     let estimate=0, pricedBase=0, spent=0, committed=0, missing=0, done=0, shown=0, stale=0, undated=0;
     const byStage=new Map();
-    const search=$('checkSearch').value.trim(), filter=$('checkFilter').value;
+    const search=$('checkSearch').value.trim(), filter=$('checkFilter').value, stageFilter=items.some(item=>item.stage===$('checkStageFilter').value)?$('checkStageFilter').value:'';
+    const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+    const stageSelect=$('checkStageFilter'); stageSelect.replaceChildren();
+    const allStages=document.createElement('option'); allStages.value=''; allStages.textContent='همه مراحل'; stageSelect.appendChild(allStages);
+    for(const name of new Set(items.map(item=>item.stage).filter(Boolean))){const option=document.createElement('option');option.value=name;option.textContent=name;stageSelect.appendChild(option);}
+    stageSelect.value=stageFilter;
     $('checkItems').replaceChildren();
     for (const item of items) {
       const cost=item.unitPrice===null?null:item.quantity*item.unitPrice+item.extra;
@@ -53,8 +58,9 @@
       group.count++; if(cost===null)group.missing++; else group.estimate+=cost;
       if(item.status==='پرداخت‌شده')group.spent+=item.paid;
       byStage.set(item.stage,group);
-      if(search&&!(`${item.name} ${item.stage} ${item.unit}`).includes(search))continue;
-      if(filter==='done'&&!item.done || filter==='open'&&item.done || filter==='missing'&&item.unitPrice!==null)continue;
+      if(search&&!(`${item.name} ${item.stage} ${item.unit} ${item.assignee||''}`).includes(search))continue;
+      if(stageFilter && item.stage!==stageFilter)continue;
+      if(filter==='done'&&!item.done || filter==='open'&&item.done || filter==='missing'&&item.unitPrice!==null || filter==='overdue'&&(!item.due||item.done||item.due>=localDate))continue;
       shown++;
       const row=document.createElement('article'); row.className='project-item';
       const title=document.createElement('h3'); title.textContent=item.name;
@@ -86,8 +92,8 @@
     $('checkScenarioResult').textContent=Number.isFinite(change)&&change>=-100&&change<=1000?`برآورد سناریو: ${money(estimate+pricedBase*change/100)}${missing?' + '+number(missing)+' قلم بدون قیمت':''}`:'درصد تغییر باید بین ۱۰۰- تا ۱۰۰۰ باشد.';
     $('checkWarning').textContent=budget!==null && (spent+committed+reserve>budget || estimate+reserve>budget)?'هشدار: مجموع برآورد یا هزینه‌ها با ذخیره احتیاطی از بودجه بیشتر است.':'';
   }
-  $('checkProject').onchange=()=>{selected=$('checkProject').value;resetForm();render();};
-  $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkScenario').oninput=render;
+  $('checkProject').onchange=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';resetForm();render();};
+  $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkScenario').oninput=render;
   $('checkReload').onclick=refreshProjects;
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=Number($('checkReserve').value);if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;

@@ -19,6 +19,8 @@ assert.equal(el('checkBalance').textContent,'۷۵٬۰۰۰٬۰۰۰ تومان');
 el('checkScenario').value='10';el('checkScenario').oninput();assert.equal(el('checkScenarioResult').textContent,'برآورد سناریو: ۲۲٬۰۰۰٬۰۰۰ تومان');assert.ok(el('checkPriceAge').textContent.includes('۱ قیمت تاریخ ندارد'));
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,1);
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].assignee,'علی');assert.ok(el('checkItems').children[0].children[2].textContent.includes('موعد گذشته'));
+el('checkFilter').value='overdue';el('checkFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱ از ۱ ردیف');
+el('checkSearch').value='علی';el('checkSearch').oninput();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱ از ۱ ردیف');el('checkSearch').value='';el('checkFilter').value='all';el('checkFilter').handlers.change();
 el('checkItems').children[0].children[3].children[0].handlers.click();
 assert.equal(el('checkProgress').textContent,'۱۰۰٪');
 el('checkTemplate').handlers.click();
@@ -36,6 +38,7 @@ fileInput.files=[{size:100,text:async()=>'{bad'}];await fileInput.handlers.chang
 el('checkSearch').value='بلوک';el('checkSearch').oninput();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 el('checkPrint').handlers.click();assert.ok(printed);assert.equal(el('printReport').children.filter(x=>x.className==='print-item').length,12);assert.equal(el('printReport').children[5].children[0].textContent,'سیمان');
 el('checkSearch').value='';el('checkFilter').value='missing';el('checkFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱۰ از ۱۲ ردیف');
+el('checkFilter').value='all';el('checkStageFilter').value='پی';el('checkStageFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۲ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');el('checkStageFilter').value='';el('checkStageFilter').handlers.change();
 el('checkFilter').value='all';el('checkFilter').handlers.change();el('checkItems').children[0].children[3].children[3].handlers.click();
 restored=JSON.parse(store['yasbuildos.checklist.v1']).p1;assert.equal(restored.items.at(-1).paid,0);assert.equal(restored.items.at(-1).status,'برآورد');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 console.log('PASS manual price, estimate, paid amount, reserve, balance, persistence and completion');
