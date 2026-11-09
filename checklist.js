@@ -100,6 +100,27 @@
     if(save({...all,[selected]:{...s,items}})){resetForm();msg('ردیف ذخیره شد.');render();}
   };
   $('checkExport').onclick=()=>{if(!selected)return; const p=projects.find(x=>x.id===selected), payload={version:1,project:p,checklist:state(),exportedAt:new Date().toISOString()};const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $('checkPrint').onclick=()=>{
+    if(!selected)return;
+    const project=projects.find(p=>p.id===selected), current=state(), report=$('printReport');
+    report.replaceChildren();
+    const add=(parent,tag,text)=>{const element=document.createElement(tag);element.textContent=text;parent.appendChild(element);return element;};
+    add(report,'h1','گزارش چک‌لیست و بودجه پروژه');
+    add(report,'p',`پروژه: ${project.name} · ${project.city||'شهر ثبت نشده'} · تاریخ تهیه: ${new Date().toLocaleDateString('fa-IR')}`);
+    add(report,'p',`بودجه: ${$('checkBudget').textContent} | برآورد: ${$('checkEstimate').textContent} | پرداخت: ${$('checkSpent').textContent} | تعهد: ${$('checkCommit').textContent}`);
+    add(report,'p',`ذخیره احتیاطی: ${money(Number(current.reserve)||0)} | مانده پس از تعهد و ذخیره: ${$('checkBalance').textContent} | پیشرفت: ${$('checkProgress').textContent}`);
+    add(report,'p','قیمت‌ها به‌صورت دستی ثبت شده‌اند. گزارش شامل همه ردیف‌هاست و به فیلتر صفحه محدود نیست.');
+    for(const item of current.items){
+      const article=document.createElement('article');article.className='print-item';report.appendChild(article);
+      const cost=item.unitPrice===null?'نامشخص':money(item.quantity*item.unitPrice+item.extra);
+      add(article,'h2',item.name);
+      add(article,'p',`${item.stage} | ${number(item.quantity)} ${item.unit} | قیمت واحد: ${item.unitPrice===null?'نامشخص':money(item.unitPrice)} | برآورد: ${cost}`);
+      add(article,'p',`${item.status}${item.status==='برآورد'?'':': '+money(item.paid)} | ${item.done?'انجام‌شده':'انجام‌نشده'}${item.assignee?' | مسئول: '+item.assignee:''}${item.due?' | موعد: '+item.due:''}`);
+      if(item.source||item.date)add(article,'p',`منبع: ${item.source||'ثبت نشده'} | تاریخ قیمت: ${item.date||'ثبت نشده'}`);
+    }
+    if(!current.items.length)add(report,'p','هنوز ردیفی ثبت نشده است.');
+    window.print();
+  };
   $('checkImport').addEventListener('change',async event=>{
     const input=event.currentTarget, file=input.files?.[0], projectId=selected;
     if(!file||!projectId)return;

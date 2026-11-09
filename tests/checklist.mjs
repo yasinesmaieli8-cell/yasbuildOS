@@ -8,7 +8,8 @@ const store={'yasbuildos.projects.v1':JSON.stringify([project])};
 const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}};
 const document={getElementById:el,createElement:element,querySelector:()=>nav};
 let exported; const fakeURL={createObjectURL(blob){exported=blob;return 'blob:test'},revokeObjectURL(){}};
-vm.runInNewContext(source,{document,localStorage,Intl,crypto:{randomUUID:()=> 'id-1'},confirm:()=>true,console,URL:fakeURL,Blob,setTimeout});
+let printed=false;
+vm.runInNewContext(source,{document,localStorage,Intl,crypto:{randomUUID:()=> 'id-1'},confirm:()=>true,console,URL:fakeURL,Blob,setTimeout,window:{print(){printed=true}}});
 el('checkProject').value='p1';el('checkProject').handlers.change();
 Object.assign(el('checkName'),{value:'سیمان'});el('checkStage').value='پی';el('checkQuantity').value='100';el('checkUnit').value='کیسه';el('checkUnitPrice').value='200000';el('checkExtra').value='0';el('checkStatus').value='پرداخت‌شده';el('checkPaid').value='15000000';el('checkAssignee').value='علی';el('checkDue').value='2020-01-01';el('checkForm').handlers.submit({preventDefault(){}});
 el('checkReserve').value='10000000';el('checkReserveSave').handlers.click();
@@ -33,6 +34,7 @@ let restored=JSON.parse(store['yasbuildos.checklist.v1']).p1;assert.equal(restor
 fileInput.files=[{size:100,text:async()=>JSON.stringify(imported)}];await fileInput.handlers.change({currentTarget:fileInput});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,restored.items.length);
 fileInput.files=[{size:100,text:async()=>'{bad'}];await fileInput.handlers.change({currentTarget:fileInput});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,restored.items.length);
 el('checkSearch').value='بلوک';el('checkSearch').oninput();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
+el('checkPrint').handlers.click();assert.ok(printed);assert.equal(el('printReport').children.filter(x=>x.className==='print-item').length,12);assert.equal(el('printReport').children[5].children[0].textContent,'سیمان');
 el('checkSearch').value='';el('checkFilter').value='missing';el('checkFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱۰ از ۱۲ ردیف');
 el('checkFilter').value='all';el('checkFilter').handlers.change();el('checkItems').children[0].children[3].children[3].handlers.click();
 restored=JSON.parse(store['yasbuildos.checklist.v1']).p1;assert.equal(restored.items.at(-1).paid,0);assert.equal(restored.items.at(-1).status,'برآورد');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
