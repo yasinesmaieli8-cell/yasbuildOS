@@ -34,7 +34,9 @@
     const box=$('checkContent'); box.hidden=!selected; if(!selected) return;
     const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[];
     $('checkReserve').value=s.reserve || '';
-    let estimate=0, spent=0, committed=0, missing=0, done=0;
+    let estimate=0, spent=0, committed=0, missing=0, done=0, shown=0;
+    const byStage=new Map();
+    const search=$('checkSearch').value.trim(), filter=$('checkFilter').value;
     $('checkItems').replaceChildren();
     for (const item of items) {
       const cost=item.unitPrice===null?null:item.quantity*item.unitPrice+item.extra;
@@ -42,6 +44,13 @@
       if(item.status==='پرداخت‌شده') spent+=item.paid;
       if(item.status==='متعهدشده') committed+=item.paid;
       if(item.done) done++;
+      const group=byStage.get(item.stage)||{estimate:0,missing:0,spent:0,count:0};
+      group.count++; if(cost===null)group.missing++; else group.estimate+=cost;
+      if(item.status==='پرداخت‌شده')group.spent+=item.paid;
+      byStage.set(item.stage,group);
+      if(search&&!(`${item.name} ${item.stage} ${item.unit}`).includes(search))continue;
+      if(filter==='done'&&!item.done || filter==='open'&&item.done || filter==='missing'&&item.unitPrice!==null)continue;
+      shown++;
       const row=document.createElement('article'); row.className='project-item';
       const title=document.createElement('h3'); title.textContent=item.name;
       const detail=document.createElement('p'); detail.textContent=[item.stage,number(item.quantity)+' '+item.unit,item.unitPrice===null?'قیمت واحد نامشخص':'قیمت واحد: '+money(item.unitPrice),cost===null?'برآورد نامشخص':'برآورد: '+money(cost),item.status==='برآورد'?'بدون پرداخت ثبت‌شده':item.status+': '+money(item.paid),item.done?'انجام شده':'انجام نشده'].join(' · ');
@@ -55,6 +64,11 @@
       actions.append(toggle,edit,remove); row.appendChild(actions); $('checkItems').appendChild(row);
     }
     if(!items.length) $('checkItems').textContent='هنوز ردیفی ثبت نشده است.';
+    else if(!shown) $('checkItems').textContent='ردیفی با این جست‌وجو یا فیلتر پیدا نشد.';
+    $('checkVisibleCount').textContent=`نمایش ${number(shown)} از ${number(items.length)} ردیف`;
+    const summary=$('checkStages');summary.replaceChildren();
+    for(const [name,group] of byStage){const row=document.createElement('p');row.textContent=`${name}: ${number(group.count)} ردیف · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' بدون قیمت':''} · پرداخت‌شده ${money(group.spent)}`;summary.appendChild(row);}
+    if(!byStage.size)summary.textContent='هنوز هزینه‌ای برای نمایش ثبت نشده است.';
     const budget=project.budget===null||project.budget===undefined?null:Number(project.budget), reserve=Number(s.reserve)||0;
     $('checkBudget').textContent=budget===null?'ثبت نشده':money(budget); $('checkEstimate').textContent=money(estimate)+(missing?' + '+number(missing)+' قلم بدون قیمت':'');
     $('checkSpent').textContent=money(spent); $('checkCommit').textContent=money(committed);
@@ -63,6 +77,7 @@
     $('checkWarning').textContent=budget!==null && (spent+committed+reserve>budget || estimate+reserve>budget)?'هشدار: مجموع برآورد یا هزینه‌ها با ذخیره احتیاطی از بودجه بیشتر است.':'';
   }
   $('checkProject').onchange=()=>{selected=$('checkProject').value;resetForm();render();};
+  $('checkSearch').oninput=render; $('checkFilter').onchange=render;
   $('checkReload').onclick=refreshProjects;
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=Number($('checkReserve').value);if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;
@@ -75,6 +90,24 @@
     if(save({...all,[selected]:{...s,items}})){resetForm();msg('ردیف ذخیره شد.');render();}
   };
   $('checkExport').onclick=()=>{if(!selected)return; const p=projects.find(x=>x.id===selected), payload={version:1,project:p,checklist:state(),exportedAt:new Date().toISOString()};const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $('checkImport').addEventListener('change',async event=>{
+    const input=event.currentTarget, file=input.files?.[0], projectId=selected;
+    if(!file||!projectId)return;
+    try {
+      if(file.size>5*1024*1024)throw Error('too large');
+      const backup=JSON.parse(await file.text()), saved=backup?.checklist;
+      const num=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1e15;
+      const str=(s,max)=>typeof s==='string'&&s.length<=max;
+      const valid=i=>i&&typeof i==='object'&&str(i.id,100)&&i.id.length>0&&str(i.name,100)&&i.name.trim()&&stages.includes(i.stage)&&num(i.quantity)&&str(i.unit,30)&&i.unit.trim()&&(i.unitPrice===null||num(i.unitPrice))&&num(i.extra)&&num(i.paid)&&['برآورد','متعهدشده','پرداخت‌شده'].includes(i.status)&&str(i.source,200)&&str(i.date,10)&&typeof i.done==='boolean'&&Number.isSafeInteger(Math.round(i.quantity*(i.unitPrice??0)+i.extra));
+      if(backup?.version!==1||!saved||!num(saved.reserve)||!Array.isArray(saved.items)||saved.items.length>10000||!saved.items.every(valid)||new Set(saved.items.map(i=>i.id)).size!==saved.items.length)throw Error('invalid');
+      if(selected!==projectId){msg('پروژه انتخابی عوض شد؛ دوباره فایل را انتخاب کنید.');return;}
+      const current=state(), ids=new Set(current.items.map(i=>i.id)), added=saved.items.filter(i=>!ids.has(i.id));
+      if(current.items.length+added.length>10000)throw Error('too many');
+      if(!confirm(`${added.length.toLocaleString('fa-IR')} ردیف تازه به پروژه انتخابی اضافه شود؟ ردیف‌های تکراری و ذخیره احتیاطی فعلی تغییر نمی‌کنند.`))return;
+      if(save({...all,[projectId]:{...current,items:[...current.items,...added]}})){resetForm();render();msg(`${added.length.toLocaleString('fa-IR')} ردیف بازیابی شد؛ ردیف‌های تکراری و ذخیره احتیاطی فعلی تغییر نکردند.`);}
+    } catch (_) {msg('فایل چک‌لیست معتبر نیست یا بیش از ۵ مگابایت است؛ اطلاعات قبلی تغییر نکرد.');}
+    finally {input.value='';}
+  });
   $('checkTemplate').onclick=()=>{
     if(!selected)return;
     const current=state();
