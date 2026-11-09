@@ -61,12 +61,14 @@
       const detail=document.createElement('p'); detail.textContent=[item.stage,number(item.quantity)+' '+item.unit,item.unitPrice===null?'قیمت واحد نامشخص':'قیمت واحد: '+money(item.unitPrice),cost===null?'برآورد نامشخص':'برآورد: '+money(cost),item.status==='برآورد'?'بدون پرداخت ثبت‌شده':item.status+': '+money(item.paid),item.done?'انجام شده':'انجام نشده'].join(' · ');
       row.append(title,detail);
       if(item.source){ const source=document.createElement('p'); source.textContent='منبع ثبت‌شده: '+item.source+(item.date?' · '+item.date:''); row.appendChild(source); }
+      if(item.assignee||item.due){const details=document.createElement('p');const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');details.textContent=[item.assignee?'مسئول: '+item.assignee:'',item.due?'موعد: '+item.due:'',item.due&&!item.done&&item.due<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');row.appendChild(details);}
       const actions=document.createElement('div'); actions.className='project-actions';
       const toggle=document.createElement('button'); toggle.type='button'; toggle.className='btn secondary sm'; toggle.textContent=item.done?'علامت به‌عنوان انجام‌نشده':'علامت به‌عنوان انجام‌شده';
       toggle.onclick=()=>{const current=state(); const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
-      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id; for(const [id,val] of Object.entries({checkName:item.name,checkStage:item.stage,checkQuantity:item.quantity,checkUnit:item.unit,checkUnitPrice:item.unitPrice??'',checkExtra:item.extra,checkStatus:item.status,checkPaid:item.paid,checkSource:item.source,checkDate:item.date})) $(id).value=val; $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
+      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id; for(const [id,val] of Object.entries({checkName:item.name,checkStage:item.stage,checkQuantity:item.quantity,checkUnit:item.unit,checkUnitPrice:item.unitPrice??'',checkExtra:item.extra,checkStatus:item.status,checkPaid:item.paid,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||''})) $(id).value=val; $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
       const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{if(!confirm('این ردیف از چک‌لیست حذف شود؟'))return; const current=state(); if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){if(editing===item.id)resetForm();render();}};
-      actions.append(toggle,edit,remove); row.appendChild(actions); $('checkItems').appendChild(row);
+      const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و وضعیت آن برآورد است.');}};
+      actions.append(toggle,edit,remove,copy); row.appendChild(actions); $('checkItems').appendChild(row);
     }
     if(!items.length) $('checkItems').textContent='هنوز ردیفی ثبت نشده است.';
     else if(!shown) $('checkItems').textContent='ردیفی با این جست‌وجو یا فیلتر پیدا نشد.';
@@ -92,7 +94,7 @@
   $('checkForm').onsubmit=e=>{
     e.preventDefault(); if(!selected||!healthy||!$('checkForm').reportValidity())return;
     const n=id=>Number($(id).value), unitPrice=$('checkUnitPrice').value===''?null:n('checkUnitPrice');
-    const item={id:editing||crypto.randomUUID(),name:$('checkName').value.trim(),stage:$('checkStage').value,quantity:n('checkQuantity'),unit:$('checkUnit').value.trim(),unitPrice,extra:n('checkExtra'),status:$('checkStatus').value,paid:n('checkPaid'),source:$('checkSource').value.trim(),date:$('checkDate').value,done:editing?(state().items.find(x=>x.id===editing)?.done||false):false};
+    const item={id:editing||crypto.randomUUID(),name:$('checkName').value.trim(),stage:$('checkStage').value,quantity:n('checkQuantity'),unit:$('checkUnit').value.trim(),unitPrice,extra:n('checkExtra'),status:$('checkStatus').value,paid:n('checkPaid'),source:$('checkSource').value.trim(),date:$('checkDate').value,assignee:$('checkAssignee').value.trim(),due:$('checkDue').value,done:editing?(state().items.find(x=>x.id===editing)?.done||false):false};
     if(!item.name||!item.unit||![item.quantity,item.extra,item.paid,...(unitPrice===null?[]:[unitPrice])].every(x=>Number.isFinite(x)&&x>=0&&x<=1e15)||!Number.isSafeInteger(Math.round(item.quantity*(unitPrice??0)+item.extra))){msg('مقدارها معتبر نیستند یا از محدوده قابل محاسبه بیشترند.');return;}
     const s=state(), items=editing?s.items.map(x=>x.id===editing?item:x):[...(s.items||[]),item];
     if(save({...all,[selected]:{...s,items}})){resetForm();msg('ردیف ذخیره شد.');render();}
@@ -106,7 +108,7 @@
       const backup=JSON.parse(await file.text()), saved=backup?.checklist;
       const num=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1e15;
       const str=(s,max)=>typeof s==='string'&&s.length<=max;
-      const valid=i=>i&&typeof i==='object'&&str(i.id,100)&&i.id.length>0&&str(i.name,100)&&i.name.trim()&&stages.includes(i.stage)&&num(i.quantity)&&str(i.unit,30)&&i.unit.trim()&&(i.unitPrice===null||num(i.unitPrice))&&num(i.extra)&&num(i.paid)&&['برآورد','متعهدشده','پرداخت‌شده'].includes(i.status)&&str(i.source,200)&&str(i.date,10)&&typeof i.done==='boolean'&&Number.isSafeInteger(Math.round(i.quantity*(i.unitPrice??0)+i.extra));
+      const valid=i=>i&&typeof i==='object'&&str(i.id,100)&&i.id.length>0&&str(i.name,100)&&i.name.trim()&&stages.includes(i.stage)&&num(i.quantity)&&str(i.unit,30)&&i.unit.trim()&&(i.unitPrice===null||num(i.unitPrice))&&num(i.extra)&&num(i.paid)&&['برآورد','متعهدشده','پرداخت‌شده'].includes(i.status)&&str(i.source,200)&&str(i.date,10)&&(i.assignee===undefined||str(i.assignee,100))&&(i.due===undefined||str(i.due,10)&&(!i.due||/^\d{4}-\d{2}-\d{2}$/.test(i.due)))&&typeof i.done==='boolean'&&Number.isSafeInteger(Math.round(i.quantity*(i.unitPrice??0)+i.extra));
       if(backup?.version!==1||!saved||!num(saved.reserve)||!Array.isArray(saved.items)||saved.items.length>10000||!saved.items.every(valid)||new Set(saved.items.map(i=>i.id)).size!==saved.items.length)throw Error('invalid');
       if(selected!==projectId){msg('پروژه انتخابی عوض شد؛ دوباره فایل را انتخاب کنید.');return;}
       const current=state(), ids=new Set(current.items.map(i=>i.id)), added=saved.items.filter(i=>!ids.has(i.id));
@@ -126,8 +128,8 @@
   $('checkCsv').onclick=()=>{
     if(!selected)return;
     const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
-    const rows=[['فعالیت','مرحله','مقدار','واحد','قیمت واحد تومان','هزینه اضافی تومان','برآورد تومان','وضعیت هزینه','پرداخت یا تعهد تومان','انجام شده','منبع','تاریخ قیمت']];
-    for(const item of state().items)rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.paid,item.done?'بله':'خیر',item.source,item.date]);
+    const rows=[['فعالیت','مرحله','مقدار','واحد','قیمت واحد تومان','هزینه اضافی تومان','برآورد تومان','وضعیت هزینه','پرداخت یا تعهد تومان','انجام شده','منبع','تاریخ قیمت','مسئول','موعد']];
+    for(const item of state().items)rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.paid,item.done?'بله':'خیر',item.source,item.date,item.assignee||'',item.due||'']);
     const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('گزارش CSV ساخته شد.');
   };
