@@ -1,0 +1,11 @@
+{
+  "name": "yasbuildos-tests",
+  "private": true,
+  "scripts": {
+    "test:team-rls": "node tests/team-rls.mjs",
+    "test:team-ui": "node tests/team-ui.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15"
+  }
+}

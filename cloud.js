@@ -15,13 +15,19 @@
     async projects() {
       if (!currentUser) throw new Error('login');
       const userId = currentUser.id;
-      const { data, error } = await client.from('yb_projects').select('id,name').order('created_at', { ascending: false });
+      const { data, error } = await client.from('yb_projects').select('id,name,owner_id').order('created_at', { ascending: false });
       if (error || currentUser?.id !== userId) throw error || new Error('session changed');
-      return data;
+      const membership = await client.from('yb_project_members').select('project_id,role,status').eq('user_id', userId);
+      if (currentUser?.id !== userId) throw new Error('session changed');
+      const editable = new Set((membership.data || []).filter(m => m.status === 'active' && m.role === 'editor').map(m => m.project_id));
+      return data.filter(p => p.owner_id === userId || editable.has(p.id));
     },
     async saveCalculation(projectId, record) {
       if (!currentUser) throw new Error('login');
-      const { error } = await client.from('yb_calculations').insert({ project_id: projectId, tool_name: record.tool, title: record.tool, inputs: record.inputs, outputs: record.outputs });
+      const userId = currentUser.id;
+      const project = await client.from('yb_projects').select('owner_id').eq('id', projectId).single();
+      if (project.error || !project.data || currentUser?.id !== userId) throw project.error || new Error('project unavailable');
+      const { error } = await client.from('yb_calculations').insert({ project_id: projectId, owner_id: project.data.owner_id, tool_name: record.tool, title: record.tool, inputs: record.inputs, outputs: record.outputs });
       if (error) throw error;
     }
   };
@@ -43,6 +49,8 @@
     el('cloudSignedOut').hidden = Boolean(user);
     el('cloudSignedIn').hidden = !user;
     el('cloudEmailDisplay').textContent = user ? user.email : '';
+    el('cloudUserId').textContent = user ? user.id : '';
+    el('cloudInvitations').replaceChildren();
     el('topname').textContent = user ? (user.email || 'کاربر') : 'مهمان';
     el('toprole').textContent = user ? 'حساب کاربری' : 'بدون نشست';
     el('cloudProjectList').replaceChildren();
@@ -80,18 +88,89 @@
     const { error } = await client.auth.signOut();
     if (error) message('خروج انجام نشد؛ دوباره تلاش کن.'); else message('از حساب خارج شدی.');
   });
+  function teamControls(project, ownerId) {
+    const box = document.createElement('details');
+    const heading = document.createElement('summary'); heading.textContent = 'اعضا و دعوت به پروژه'; box.appendChild(heading);
+    const info = document.createElement('p'); info.className = 'project-message'; info.textContent = 'شناسه حساب همکار را از خود او بگیرید. دسترسی پس از پذیرش دعوت فعال می‌شود. تغییر نقش، پذیرش دوباره را لازم می‌کند.'; box.appendChild(info);
+    const form = document.createElement('form');
+    const idLabel = document.createElement('label'); idLabel.textContent = 'شناسه حساب همکار';
+    const input = document.createElement('input'); input.type = 'text'; input.required = true; input.placeholder = 'شناسه حساب همکار'; input.setAttribute('aria-label','شناسه حساب همکار'); input.style.cssText = 'width:100%;padding:10px;margin:8px 0'; idLabel.appendChild(input);
+    const select = document.createElement('select'); select.setAttribute('aria-label','نقش همکار');
+    for (const [value, label] of [['viewer','فقط مشاهده'],['editor','مشاهده و ویرایش']]) { const option = document.createElement('option'); option.value=value; option.textContent=label; select.appendChild(option); }
+    const submit = document.createElement('button'); submit.type='submit'; submit.className='btn secondary sm'; submit.textContent='ثبت دعوت';
+    const status = document.createElement('p'); status.className='project-message'; status.setAttribute('role','status'); status.setAttribute('aria-live','polite');
+    const list = document.createElement('div');
+    form.append(idLabel,select,submit); box.append(form,status,list);
+    async function refresh() {
+      if (currentUser?.id !== ownerId) return;
+      const { data, error } = await client.from('yb_project_members').select('user_id,role,status').eq('project_id',project.id).order('created_at',{ascending:true});
+      if (currentUser?.id !== ownerId) return;
+      list.replaceChildren();
+      if (error) { status.textContent='دریافت فهرست اعضا انجام نشد.'; return; }
+      if (!data.length) { list.textContent='هنوز عضوی دعوت نشده است.'; return; }
+      for (const member of data) {
+        const row=document.createElement('div'); row.className='project-item';
+        const text=document.createElement('p'); text.textContent=`${member.user_id} · ${member.role === 'editor' ? 'ویرایشگر' : 'فقط مشاهده'} · ${member.status === 'active' ? 'فعال' : 'در انتظار پذیرش'}`;
+        const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='لغو دسترسی';
+        remove.addEventListener('click', async () => {
+          if (!confirm('دعوت یا دسترسی این عضو به پروژه لغو شود؟')) return;
+          remove.disabled=true;
+          try { const {error}=await client.rpc('yb_remove_member',{p_project:project.id,p_user:member.user_id}); if(error) throw error; status.textContent='دسترسی لغو شد.'; await refresh(); }
+          catch (_) { status.textContent='لغو دسترسی انجام نشد.'; }
+          finally { remove.disabled=false; }
+        });
+        row.append(text,remove); list.appendChild(row);
+      }
+    }
+    box.addEventListener('toggle',()=>{ if (box.open) refresh().catch(()=>{status.textContent='دریافت فهرست اعضا انجام نشد.';}); });
+    form.addEventListener('submit', async event => {
+      event.preventDefault(); const id=input.value.trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) { status.textContent='شناسه حساب معتبر نیست.'; return; }
+      submit.disabled=true;
+      try { const {error}=await client.rpc('yb_invite_member',{p_project:project.id,p_user:id,p_role:select.value}); if(error) throw error; input.value=''; status.textContent='دعوت ثبت شد؛ همکار باید آن را در حساب خود بپذیرد.'; await refresh(); }
+      catch (_) { status.textContent='ثبت دعوت انجام نشد؛ شناسه حساب تأییدشده و اتصال را بررسی کنید.'; }
+      finally { submit.disabled=false; }
+    });
+    return box;
+  }
   async function loadProjects() {
     const user = currentUser;
     if (!user) return;
     const request = ++requestNumber;
     projectMessage('در حال دریافت پروژه‌ها…');
     try {
-      const { data, error } = await client.from('yb_projects').select('id,name,city,project_type,area,budget,status').order('created_at', { ascending: false });
+      const memberships = await client.from('yb_project_members').select('project_id,role,status').eq('user_id', user.id);
+      if (request !== requestNumber || currentUser?.id !== user.id) return;
+      const teamAvailable = !memberships.error;
+      const memberRoles = new Map((memberships.data || []).filter(m => m.status === 'active').map(m => [m.project_id, m.role]));
+      const invitations = el('cloudInvitations'); invitations.replaceChildren();
+      if (!teamAvailable) invitations.textContent = 'امکانات تیمی هنوز روی سرویس فعال نشده‌اند.';
+      for (const invitation of (memberships.data || []).filter(m => m.status === 'pending')) {
+        const item = document.createElement('div'); item.className = 'project-item';
+        const label = document.createElement('p'); label.textContent = `دعوت به پروژه ${invitation.project_id} · نقش: ${invitation.role === 'editor' ? 'ویرایشگر' : 'فقط مشاهده'}`;
+        const accept = document.createElement('button'); accept.type = 'button'; accept.className = 'btn secondary sm'; accept.textContent = 'پذیرش دعوت';
+        accept.addEventListener('click', async () => {
+          accept.disabled = true;
+          try { const { error } = await client.rpc('yb_accept_invitation', {p_project:invitation.project_id}); if (error) throw error; await loadProjects(); }
+          catch (_) { projectMessage('پذیرش دعوت انجام نشد؛ دوباره تلاش کنید.'); }
+          finally { accept.disabled = false; }
+        });
+        const reject = document.createElement('button'); reject.type = 'button'; reject.className = 'btn secondary sm'; reject.textContent = 'رد دعوت';
+        reject.addEventListener('click', async () => {
+          reject.disabled = true;
+          try { const { error } = await client.rpc('yb_remove_member', {p_project:invitation.project_id, p_user:user.id}); if (error) throw error; await loadProjects(); }
+          catch (_) { projectMessage('رد دعوت انجام نشد؛ دوباره تلاش کنید.'); }
+          finally { reject.disabled = false; }
+        });
+        item.append(label,accept,reject); invitations.appendChild(item);
+      }
+      const { data, error } = await client.from('yb_projects').select('id,owner_id,name,city,project_type,area,budget,status').order('created_at', { ascending: false });
       if (request !== requestNumber || currentUser?.id !== user.id) return;
       if (error) { projectMessage('دریافت پروژه‌ها انجام نشد؛ اتصال یا تنظیمات سرویس را بررسی کنید.'); return; }
       const list = el('cloudProjectList'); list.replaceChildren();
       projectMessage(data.length ? `${data.length.toLocaleString('fa-IR')} پروژه ابری` : 'هنوز پروژه ابری ثبت نشده است.');
       for (const p of data) {
+        const role = p.owner_id === user.id ? 'owner' : memberRoles.get(p.id);
         const card = document.createElement('article'); card.className = 'project-item';
         const heading = document.createElement('h3'); heading.textContent = p.name; card.appendChild(heading);
         const details = document.createElement('p');
@@ -131,7 +210,12 @@
             }
           } catch (_) { results.textContent = 'دریافت محاسبات انجام نشد.'; }
         });
-        actions.append(edit,remove); card.appendChild(actions); card.appendChild(calculations); list.appendChild(card);
+        if (role === 'owner' || role === 'editor') actions.appendChild(edit);
+        if (role === 'owner') actions.appendChild(remove);
+        const roleLabel = document.createElement('p'); roleLabel.textContent = role === 'owner' ? 'نقش شما: مالک' : role === 'editor' ? 'نقش شما: ویرایشگر' : 'نقش شما: فقط مشاهده'; card.appendChild(roleLabel);
+        actions.appendChild(calculations); card.appendChild(actions);
+        if (role === 'owner' && teamAvailable) card.appendChild(teamControls(p, user.id));
+        list.appendChild(card);
       }
     } catch (_) { if (request === requestNumber) projectMessage('دریافت پروژه‌ها انجام نشد.'); }
   }
