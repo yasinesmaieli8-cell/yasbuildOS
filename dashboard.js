@@ -1,17 +1,28 @@
 (() => {
   'use strict';
   const $=id=>document.getElementById(id), fmt=n=>new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(n);
+  function readData(){
+    const projects=JSON.parse(localStorage.getItem('yasbuildos.projects.v1')||'[]'),checks=JSON.parse(localStorage.getItem('yasbuildos.checklist.v1')||'{}');
+    if(!Array.isArray(projects)||!checks||typeof checks!=='object'||Array.isArray(checks))throw Error('invalid');
+    return {projects,checks};
+  }
+  const dateToday=()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');};
+  function dueItems(projects,checks){
+    const due=[];
+    for(const p of projects){const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[];
+      for(const i of items)if(!i.done&&/^\d{4}-\d{2}-\d{2}$/.test(i.due||''))due.push({name:i.name,project:p.name,projectId:p.id,date:i.due,assignee:i.assignee||'',priority:i.priority||'معمولی'});
+    }
+    return due.sort((a,b)=>a.date.localeCompare(b.date));
+  }
   function render(){
     const list=$('dashProjects'); list.replaceChildren();
     try {
-      const projects=JSON.parse(localStorage.getItem('yasbuildos.projects.v1')||'[]');
-      const checks=JSON.parse(localStorage.getItem('yasbuildos.checklist.v1')||'{}');
-      if(!Array.isArray(projects)||!checks||typeof checks!=='object'||Array.isArray(checks)) throw Error('invalid');
-      let rows=0, done=0, spent=0, commitments=0, missing=0; const due=[];
+      const {projects,checks}=readData(),due=dueItems(projects,checks);
+      let rows=0, done=0, spent=0, commitments=0, missing=0;
       for(const p of projects){
         const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[];
         rows+=items.length;
-        for(const i of items){ if(i.done)done++; if(i.unitPrice===null)missing++; if(i.status==='پرداخت‌شده')spent+=Number(i.paid)||0; if(i.status==='متعهدشده')commitments+=Number(i.paid)||0; if(!i.done && /^\d{4}-\d{2}-\d{2}$/.test(i.due||''))due.push({name:i.name,project:p.name,date:i.due,assignee:i.assignee||'',priority:i.priority||'معمولی'}); }
+        for(const i of items){ if(i.done)done++; if(i.unitPrice===null)missing++; if(i.status==='پرداخت‌شده')spent+=Number(i.paid)||0; if(i.status==='متعهدشده')commitments+=Number(i.paid)||0; }
       }
       $('dashProjectCount').textContent=fmt(projects.length); $('dashTaskCount').textContent=fmt(rows);
       $('dashDone').textContent=fmt(done); $('dashSpent').textContent=fmt(spent)+' تومان';
@@ -43,13 +54,28 @@
       }
       if(!projects.length)list.textContent='هنوز پروژه‌ای ثبت نشده است. برای شروع از بخش پروژه‌های من، پروژه بسازید.';
       const deadlines=$('dashDue');deadlines.replaceChildren();
-      const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
-      for(const item of due.sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5)){
-        const row=document.createElement('p');row.textContent=[item.name,item.project,item.date,'اولویت: '+item.priority,item.assignee?'مسئول: '+item.assignee:'',item.date<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');deadlines.appendChild(row);
+      const localDate=dateToday();
+      $('dashDueCount').textContent=`${fmt(due.length)} فعالیت دارای موعد · ${fmt(due.filter(i=>i.date<localDate).length)} موعد گذشته؛ نمایش حداکثر ۵ مورد`;
+      for(const item of due.slice(0,5)){
+        const row=document.createElement('div'),desc=document.createElement('p'),open=document.createElement('button');
+        desc.textContent=[item.name,item.project,item.date,'اولویت: '+item.priority,item.assignee?'مسئول: '+item.assignee:'',item.date<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');
+        open.type='button';open.className='btn secondary sm';open.textContent='باز کردن پروژه';open.setAttribute('aria-label','باز کردن پروژه '+item.project+' برای فعالیت '+item.name);
+        open.addEventListener('click',()=>{if(!window.yasbuildosOpenChecklist||!window.yasbuildosOpenChecklist(item.projectId))$('dashSummary').textContent='باز کردن پروژه ممکن نشد؛ فهرست پروژه‌ها را بررسی کنید.';});
+        row.append(desc,open);deadlines.appendChild(row);
       }
       if(!due.length)deadlines.textContent='فعالیت انجام‌نشده با موعد ثبت نشده است.';
     }catch(_){$('dashSummary').textContent='اطلاعات محلی خوانده نشد. دسترسی مرورگر به فضای ذخیره‌سازی را بررسی کنید.';}
   }
+  $('dashDueCsv').addEventListener('click',()=>{
+    try{
+      const {projects,checks}=readData(),today=dateToday();
+      const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+      const rows=[['فعالیت','پروژه','موعد میلادی','وضعیت موعد','مسئول','اولویت']];
+      for(const item of dueItems(projects,checks))rows.push([item.name,item.project,item.date,item.date<today?'موعد گذشته':'آینده یا امروز',item.assignee,item.priority]);
+      const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+      link.href=url;link.download='yasbuildos-deadlines.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(_){$('dashSummary').textContent='دریافت گزارش ممکن نشد؛ دسترسی به داده‌های محلی را بررسی کنید.';}
+  });
   document.querySelector('[data-tab="dashboard"]').addEventListener('click',render);
   for(const button of document.querySelectorAll('[data-dash-go]')) button.addEventListener('click',()=>document.querySelector(`[data-tab="${button.dataset.dashGo}"]`).click());
   window.addEventListener('yasbuildos-projects-updated',render);
