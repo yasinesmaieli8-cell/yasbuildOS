@@ -45,11 +45,11 @@
     },
     async saveCalculation(projectId, record) {
       if (!currentUser) throw new Error('login');
-      const userId = currentUser.id;
+      const userId = currentUser.id, revision=authRevision;
       const project = await client.from('yb_projects').select('owner_id').eq('id', projectId).single();
-      if (project.error || !project.data || currentUser?.id !== userId) throw project.error || new Error('project unavailable');
+      if (project.error || !project.data || currentUser?.id !== userId || authRevision!==revision) throw project.error || new Error('project unavailable');
       const { error } = await client.from('yb_calculations').insert({ project_id: projectId, owner_id: project.data.owner_id, tool_name: record.tool, title: record.tool, inputs: record.inputs, outputs: record.outputs });
-      if (error) throw error;
+      if (error || currentUser?.id!==userId || authRevision!==revision) throw error || new Error('session changed; save not confirmed');
     }
   };
   const showError = (error, fallback) => {
