@@ -11,12 +11,13 @@ let exported; const fakeURL={createObjectURL(blob){exported=blob;return 'blob:te
 let printed=false;
 vm.runInNewContext(source,{document,localStorage,Intl,crypto:{randomUUID:()=> 'id-1'},confirm:()=>true,console,URL:fakeURL,Blob,setTimeout,window:{print(){printed=true}}});
 el('checkProject').value='p1';el('checkProject').handlers.change();
-Object.assign(el('checkName'),{value:'سیمان'});el('checkStage').value='پی';el('checkPriority').value='بالا';el('checkQuantity').value='100';el('checkUnit').value='کیسه';el('checkUnitPrice').value='200000';el('checkExtra').value='0';el('checkStatus').value='پرداخت‌شده';el('checkPaid').value='15000000';el('checkAssignee').value='علی';el('checkDue').value='2020-01-01';el('checkForm').handlers.submit({preventDefault(){}});
+Object.assign(el('checkName'),{value:'سیمان'});el('checkStage').value='پی';el('checkPriority').value='بالا';el('checkCostType').value='مصالح';el('checkQuantity').value='100';el('checkUnit').value='کیسه';el('checkUnitPrice').value='200000';el('checkExtra').value='0';el('checkStatus').value='پرداخت‌شده';el('checkPaid').value='15000000';el('checkAssignee').value='علی';el('checkDue').value='2020-01-01';el('checkForm').handlers.submit({preventDefault(){}});
 el('checkReserve').value='10000000';el('checkReserveSave').handlers.click();
 assert.equal(el('checkEstimate').textContent,'۲۰٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkBalance').textContent,'۷۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkPlanBalance').textContent,'۷۰٬۰۰۰٬۰۰۰ تومان');
+assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].costType,'مصالح');assert.ok(el('checkCostSummary').children[0].textContent.includes('۱۵٬۰۰۰٬۰۰۰ تومان'));
 el('checkScenario').value='10';el('checkScenario').oninput();assert.equal(el('checkScenarioResult').textContent,'برآورد سناریو: ۲۲٬۰۰۰٬۰۰۰ تومان');assert.ok(el('checkPriceAge').textContent.includes('۱ قیمت تاریخ ندارد'));
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,1);
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].assignee,'علی');assert.ok(el('checkItems').children[0].children[2].textContent.includes('موعد گذشته'));
@@ -42,8 +43,10 @@ fileInput.files=[{size:100,text:async()=>'{bad'}];await fileInput.handlers.chang
 el('checkSearch').value='بلوک';el('checkSearch').oninput();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 el('checkPrint').handlers.click();assert.ok(printed);assert.equal(el('printReport').children.filter(x=>x.className==='print-item').length,12);assert.equal(el('printReport').children[5].children[0].textContent,'سیمان');
 el('checkSearch').value='';el('checkFilter').value='missing';el('checkFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱۰ از ۱۲ ردیف');
+el('checkFilter').value='all';el('checkCostFilter').value='دسته‌بندی نشده';el('checkCostFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱۰ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');el('checkCostFilter').value='';el('checkCostFilter').handlers.change();
 el('checkFilter').value='all';el('checkStageFilter').value='پی';el('checkStageFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۲ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');el('checkStageFilter').value='';el('checkStageFilter').handlers.change();
 el('checkFilter').value='all';el('checkFilter').handlers.change();el('checkItems').children[0].children[3].children[3].handlers.click();
 restored=JSON.parse(store['yasbuildos.checklist.v1']).p1;assert.equal(restored.items.at(-1).paid,0);assert.equal(restored.items.at(-1).status,'برآورد');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 el('checkCustomStage').value='تأمین تجهیزات';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.at(-1).stage,'تأمین تجهیزات');
+const categorized=structuredClone(imported);categorized.checklist.items[0].id='equipment';categorized.checklist.items[0].costType='تجهیزات';fileInput.files=[{size:100,text:async()=>JSON.stringify(categorized)}];await fileInput.handlers.change({currentTarget:fileInput});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.at(-1).costType,'تجهیزات');
 console.log('PASS manual price, estimate, paid amount, reserve, balance, persistence and completion');
