@@ -22,6 +22,7 @@
     catch (_) { msg('ذخیره انجام نشد؛ فضای ذخیره‌سازی مرورگر را بررسی کنید.'); return false; }
   }
   const state = () => all[selected] || {reserve:0, items:[]};
+  const materialCandidates = () => (state().items||[]).filter(item=>item.costType==='مصالح'&&!item.done);
   function resetForm(){ editing=null; $('checkForm').reset(); $('checkSubmit').textContent='افزودن ردیف'; $('checkCancel').hidden=true; }
   function refreshProjects() {
     const previous = selected;
@@ -93,6 +94,15 @@
     const costSummary=$('checkCostSummary');costSummary.replaceChildren();
     for(const [name,group] of byCostType){const row=document.createElement('p');row.textContent=`${name}: ${number(group.count)} ردیف · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' بدون قیمت':''} · پرداخت‌شده ${money(group.spent)} · تعهد ${money(group.committed)}`;costSummary.appendChild(row);}
     if(!byCostType.size)costSummary.textContent='هنوز هزینه‌ای برای نمایش ثبت نشده است.';
+    const candidates=materialCandidates(), materials=$('checkMaterials');materials.replaceChildren();
+    let materialEstimate=0, materialMissing=0;
+    for(const item of candidates){
+      const cost=item.unitPrice===null?null:item.quantity*item.unitPrice+item.extra;
+      if(cost===null)materialMissing++;else materialEstimate+=cost;
+      const row=document.createElement('p');row.textContent=[item.name,item.stage,number(item.quantity)+' '+item.unit,cost===null?'برآورد نامشخص':'برآورد: '+money(cost),'وضعیت هزینه: '+item.status,item.source?'منبع: '+item.source:'',item.date?'تاریخ قیمت: '+item.date:''].filter(Boolean).join(' · ');materials.appendChild(row);
+    }
+    if(!candidates.length)materials.textContent='هیچ ردیف مصالحِ انجام‌نشده‌ای ثبت نشده است.';
+    $('checkMaterialsSummary').textContent=`${number(candidates.length)} ردیف · جمع برآورد اقلام قیمت‌دار: ${money(materialEstimate)}${materialMissing?' · '+number(materialMissing)+' ردیف بدون قیمت':''}`;
     $('checkBudget').textContent=budget===null?'ثبت نشده':money(budget); $('checkEstimate').textContent=money(estimate)+(missing?' + '+number(missing)+' قلم بدون قیمت':'');
     $('checkPlanBalance').textContent=budget===null?'بودجه ثبت نشده':money(budget-estimate-reserve)+(missing?' (بدون احتساب اقلام بی‌قیمت)':'');
     $('checkSpent').textContent=money(spent); $('checkCommit').textContent=money(committed);
@@ -170,6 +180,14 @@
     for(const item of state().items)rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.paid,item.done?'بله':'خیر',item.source,item.date,item.assignee||'',item.due||'',item.priority||'معمولی',item.costType||costTypes[0]]);
     const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('گزارش CSV ساخته شد.');
+  };
+  $('checkMaterialsCsv').onclick=()=>{
+    if(!selected)return;
+    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const rows=[['مصالح فعالیت انجام‌نشده','مرحله','مقدار','واحد','قیمت واحد تومان','هزینه اضافی تومان','برآورد تومان','وضعیت هزینه','منبع','تاریخ قیمت','مسئول','موعد']];
+    for(const item of materialCandidates())rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.source,item.date,item.assignee||'',item.due||'']);
+    const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-open-materials.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('فهرست مصالح فعالیت‌های باز دانلود شد.');
   };
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
   document.querySelector('[data-tab="checklist"]').addEventListener('click',refreshProjects);
