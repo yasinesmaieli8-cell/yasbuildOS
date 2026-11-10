@@ -1,0 +1,18 @@
+import {PGlite} from '@electric-sql/pglite';
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db=new PGlite();await db.waitReady;
+await db.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
+await db.exec(await readFile('supabase/005_course_enrollment.sql','utf8'));
+const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
+await db.exec(`insert into auth.users values ('${a}'),('${b}');set role authenticated;select set_config('request.jwt.claim.sub','${a}',false);insert into public.yb_course_enrollments(course_id) values ('budget-intro-v1');`);
+assert.equal((await db.query('select count(*)::int n from public.yb_course_enrollments')).rows[0].n,1);
+await assert.rejects(db.exec(`insert into public.yb_course_enrollments(user_id,course_id) values ('${b}','budget-intro-v1')`));
+await assert.rejects(db.exec(`insert into public.yb_course_enrollments(course_id) values ('unknown')`));
+await assert.rejects(db.exec(`update public.yb_course_enrollments set user_id='${b}'`));
+await db.exec(`select set_config('request.jwt.claim.sub','${b}',false)`);
+assert.equal((await db.query('select count(*)::int n from public.yb_course_enrollments')).rows[0].n,0);
+await db.exec(`insert into public.yb_course_enrollments(course_id) values ('budget-intro-v1');`);
+assert.equal((await db.query('select count(*)::int n from public.yb_course_enrollments')).rows[0].n,1);
+await db.exec('reset role;set role anon;');await assert.rejects(db.query('select * from public.yb_course_enrollments'));
+await db.close();console.log('PASS course enrollment ownership, allowed course and anonymous isolation');

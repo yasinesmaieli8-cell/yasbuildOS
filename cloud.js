@@ -13,6 +13,19 @@
   let requestNumber = 0;
   let authPending = false;
   window.yasCloud = {
+    isSignedIn() { return Boolean(currentUser); },
+    async courseEnrollment(courseId) {
+      const userId=currentUser?.id;if(!userId)throw Error('login');
+      const {data,error}=await client.from('yb_course_enrollments').select('course_id').eq('user_id',userId).eq('course_id',courseId).maybeSingle();
+      if(error||currentUser?.id!==userId)throw error||Error('session changed');
+      return Boolean(data);
+    },
+    async enrollCourse(courseId) {
+      const userId=currentUser?.id;if(!userId)throw Error('login');
+      const {error}=await client.from('yb_course_enrollments').upsert({user_id:userId,course_id:courseId},{onConflict:'user_id,course_id',ignoreDuplicates:true});
+      if(error||currentUser?.id!==userId)throw error||Error('session changed');
+      return window.yasCloud.courseEnrollment(courseId);
+    },
     async projects() {
       if (!currentUser) throw new Error('login');
       const userId = currentUser.id;
@@ -63,6 +76,7 @@
     }
     resetProject();
     if (user) loadProjects();
+    window.dispatchEvent?.(new Event('yasbuildos-auth-changed'));
   }
   async function authAction(action) {
     if (authPending) return;
