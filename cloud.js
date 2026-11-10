@@ -12,6 +12,7 @@
   let editingId = null;
   let requestNumber = 0;
   let authPending = false;
+  let logoutPending = false;
   let passwordChangePending = false;
   let authRevision = 0;
   function hidePasswords() {
@@ -126,8 +127,14 @@
     el('cloudPasswordToggle').setAttribute('aria-pressed',String(visible));
   });
   el('cloudLogout').addEventListener('click', async () => {
-    const { error } = await client.auth.signOut();
-    if (error) message('خروج انجام نشد؛ دوباره تلاش کن.'); else message('از حساب خارج شدی.');
+    if(logoutPending)return;
+    logoutPending=true;el('cloudLogout').disabled=true;const revision=authRevision;
+    try{
+      const {error}=await client.auth.signOut();
+      if(error){if(revision===authRevision)message('خروج انجام نشد؛ اتصال را بررسی و دوباره تلاش کن.');}
+      else if(revision===authRevision||!currentUser)message('از حساب خارج شدی.');
+    }catch(_){if(revision===authRevision)message('خروج انجام نشد؛ اتصال را بررسی و دوباره تلاش کن.');}
+    finally{logoutPending=false;el('cloudLogout').disabled=false;}
   });
   function teamControls(project, ownerId) {
     const box = document.createElement('details');
@@ -185,7 +192,7 @@
       const teamAvailable = !memberships.error;
       const memberRoles = new Map((memberships.data || []).filter(m => m.status === 'active').map(m => [m.project_id, m.role]));
       const invitations = el('cloudInvitations'); invitations.replaceChildren();
-      if (!teamAvailable) invitations.textContent = 'امکانات تیمی هنوز روی سرویس فعال نشده‌اند.';
+      if (!teamAvailable) invitations.textContent = 'امکانات تیمی در دسترس نیستند؛ اتصال و راه‌اندازی سرویس را بررسی کنید.';
       for (const invitation of (memberships.data || []).filter(m => m.status === 'pending')) {
         const item = document.createElement('div'); item.className = 'project-item';
         const label = document.createElement('p'); label.textContent = `دعوت به پروژه ${invitation.project_id} · نقش: ${invitation.role === 'editor' ? 'ویرایشگر' : 'فقط مشاهده'}`;
