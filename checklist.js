@@ -26,7 +26,7 @@
   }
   const state = () => all[selected] || {reserve:0, items:[]};
   const materialCandidates = () => (state().items||[]).filter(item=>item.costType==='مصالح'&&!item.done&&(item.purchased==null||item.purchased<item.quantity));
-  function resetForm(){ editing=null; editOriginal=null; $('checkForm').reset(); $('checkSubmit').textContent='افزودن ردیف'; $('checkCancel').hidden=true; }
+  function resetForm(){ editing=null; editOriginal=null; $('checkForm').reset(); $('checkDepends').value=''; $('checkSubmit').textContent='افزودن ردیف'; $('checkCancel').hidden=true; }
   function refreshProjects() {
     const previous = selected;
     read(); if (!healthy) return;
@@ -38,6 +38,11 @@
   function render(){
     const box=$('checkContent'); box.hidden=!selected; if(!selected) return;
     const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[];
+    const dependencies=$('checkDepends'), selectedDependency=dependencies.value;dependencies.replaceChildren();
+    const none=document.createElement('option');none.value='';none.textContent='بدون پیش‌نیاز';dependencies.appendChild(none);
+    for(const candidate of items){if(candidate.id===editing)continue;const option=document.createElement('option');option.value=candidate.id;option.textContent=candidate.name+' · '+candidate.stage;dependencies.appendChild(option);}
+    if(selectedDependency&&!items.some(x=>x.id===selectedDependency)){const option=document.createElement('option');option.value=selectedDependency;option.textContent='پیش‌نیاز حذف‌شده؛ پیش از ذخیره تغییر دهید';dependencies.appendChild(option);}
+    dependencies.value=selectedDependency;
     if(reserveProject!==selected){window.budgetInputs.checkReserve.set(s.reserve || null);reserveProject=selected;}
     let estimate=0, pricedBase=0, spent=0, committed=0, missing=0, done=0, shown=0, stale=0, undated=0;
     const byStage=new Map(), byCostType=new Map(), visibleRows=[];
@@ -81,10 +86,11 @@
       if(item.source){ const source=document.createElement('p'); source.textContent='منبع ثبت‌شده: '+item.source+(item.date?' · '+item.date:''); row.appendChild(source); }
       if(item.assignee||item.due){const details=document.createElement('p');const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');details.textContent=[item.assignee?'مسئول: '+item.assignee:'',item.due?'موعد: '+item.due:'',item.due&&!item.done&&item.due<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');row.appendChild(details);}
       if(item.notes){const notes=document.createElement('p');notes.textContent='توضیحات: '+item.notes;row.appendChild(notes);}
+      if(item.dependencyId){const prerequisite=items.find(x=>x.id===item.dependencyId),dependency=document.createElement('p');dependency.textContent=prerequisite?'پیش‌نیاز: '+prerequisite.name+' · '+(prerequisite.done?'انجام شده':'هنوز انجام نشده'):'پیش‌نیاز یافت نشد؛ ردیف را ویرایش کنید.';row.appendChild(dependency);}
       const actions=document.createElement('div'); actions.className='project-actions';
       const toggle=document.createElement('button'); toggle.type='button'; toggle.className='btn secondary sm'; toggle.textContent=item.done?'علامت به‌عنوان انجام‌نشده':'علامت به‌عنوان انجام‌شده';
-      toggle.onclick=()=>{const current=state(); const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
-      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id;editOriginal=JSON.stringify(item); for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkPurchased:item.purchased??'',checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||'',checkNotes:item.notes||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
+      toggle.onclick=()=>{const current=state();const prior=item.dependencyId&&current.items.find(x=>x.id===item.dependencyId);if(!item.done&&item.dependencyId&&(!prior||!prior.done)&&!confirm('پیش‌نیاز این فعالیت انجام نشده یا پیدا نشد. با این حال فعالیت انجام‌شده ثبت شود؟'))return; const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
+      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id;editOriginal=JSON.stringify(item); if(item.dependencyId&&!state().items.some(x=>x.id===item.dependencyId)){const missing=document.createElement('option');missing.value=item.dependencyId;missing.textContent='\u067e\u06cc\u0634\u200c\u0646\u06cc\u0627\u0632 \u062d\u0630\u0641\u200c\u0634\u062f\u0647';$('checkDepends').appendChild(missing);} for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkPurchased:item.purchased??'',checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||'',checkNotes:item.notes||'',checkDepends:item.dependencyId||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
       const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{if(!confirm('این ردیف از چک‌لیست حذف شود؟'))return; const current=state(); if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){if(editing===item.id)resetForm();render();}};
       const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0,purchased:null,priceHistory:[]};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و مقدار تهیه‌شده نامشخص است.');}};
       actions.append(toggle,edit,remove,copy); row.appendChild(actions); visibleRows.push({item,row});
@@ -162,6 +168,11 @@
     if(item.purchased!==null&&(!Number.isFinite(item.purchased)||item.purchased<0||item.purchased>item.quantity)){msg('مقدار تهیه‌شده باید بین صفر و مقدار کل باشد.');return;}
     const s=state(), previous=editing?s.items.find(x=>x.id===editing):null;
     if(editing&&!previous){msg('ردیف برای ویرایش پیدا نشد.');return;} if(previous&&JSON.stringify(previous)!==editOriginal){msg('این ردیف پس از شروع ویرایش تغییر کرده است؛ متن خود را نگه دارید، ویرایش را لغو کنید و ردیف را دوباره باز کنید.');return;}
+    item.dependencyId=$('checkDepends').value;
+    if(item.dependencyId){
+      const seen=new Set([item.id]);let next=item.dependencyId;
+      while(next){if(seen.has(next)){msg('وابستگی دوری است؛ پیش‌نیاز دیگری انتخاب کنید.');return;}seen.add(next);const prerequisite=s.items.find(x=>x.id===next);if(!prerequisite){msg('پیش‌نیاز یافت نشد؛ فعالیت دیگری انتخاب کنید.');return;}next=prerequisite.dependencyId||'';}
+    }
     if(previous){
       item.offers=Array.isArray(previous.offers)?previous.offers:[];
       item.priceHistory=Array.isArray(previous.priceHistory)?previous.priceHistory.slice(-30):[];
@@ -192,6 +203,7 @@
       add(article,'p',`${item.status}${item.status==='برآورد'?'':': '+money(item.paid)} | ${item.done?'انجام‌شده':'انجام‌نشده'} | نوع هزینه: ${item.costType||costTypes[0]} | اولویت: ${item.priority||'معمولی'}${item.assignee?' | مسئول: '+item.assignee:''}${item.due?' | موعد: '+item.due:''}`);
       if(item.source||item.date)add(article,'p',`منبع: ${item.source||'ثبت نشده'} | تاریخ قیمت: ${item.date||'ثبت نشده'}`);
       if(item.notes)add(article,'p','توضیحات: '+item.notes);
+      if(item.dependencyId){const prerequisite=current.items.find(x=>x.id===item.dependencyId);add(article,'p',prerequisite?'پیش‌نیاز: '+prerequisite.name+' | '+(prerequisite.done?'انجام شده':'انجام نشده'):'پیش‌نیاز یافت نشد');}
       if(Array.isArray(item.offers)&&item.offers.length){
         add(article,'p','قیمت‌های دستی فروشندگان؛ هزینه حمل، مالیات و شرایط فروش جداگانه بررسی شود:');
         for(const offer of item.offers)add(article,'p',[offer.source,money(offer.price)+' برای '+offer.unit,offer.date?'تاریخ: '+offer.date:'بدون تاریخ',offer.note?'شرایط: '+offer.note:'',offer.unit!==item.unit?'واحد متفاوت با ردیف':''].filter(Boolean).join(' | '));
@@ -217,7 +229,7 @@
       const valid=i=>i&&typeof i==='object'&&str(i.id,100)&&i.id.length>0&&str(i.name,100)&&i.name.trim()&&str(i.stage,100)&&i.stage.trim()&&num(i.quantity)&&str(i.unit,30)&&i.unit.trim()&&(i.unitPrice===null||num(i.unitPrice))&&num(i.extra)&&num(i.paid)&&['برآورد','متعهدشده','پرداخت‌شده'].includes(i.status)&&str(i.source,200)&&str(i.date,10)&&(i.assignee===undefined||str(i.assignee,100))&&(i.due===undefined||str(i.due,10)&&(!i.due||/^\d{4}-\d{2}-\d{2}$/.test(i.due)))&&typeof i.done==='boolean'&&Number.isSafeInteger(Math.round(i.quantity*(i.unitPrice??0)+i.extra));
       const validHistory=h=>Array.isArray(h)&&h.length<=30&&h.every(p=>p&&typeof p==='object'&&(p.unitPrice===null||num(p.unitPrice))&&str(p.unit,30)&&p.unit.trim()&&str(p.source,200)&&str(p.date,10)&&str(p.changedAt,40)&&Number.isFinite(Date.parse(p.changedAt)));
       const validOffers=offers=>Array.isArray(offers)&&offers.length<=20&&offers.every(o=>o&&typeof o==='object'&&num(o.price)&&str(o.source,200)&&o.source.trim()&&str(o.unit,30)&&o.unit.trim()&&(o.note===undefined||str(o.note,200))&&str(o.date,10)&&(!o.date||/^\d{4}-\d{2}-\d{2}$/.test(o.date)));
-      if(backup?.version!==1||!saved||!num(saved.reserve)||!Array.isArray(saved.items)||saved.items.length>10000||!saved.items.every(i=>valid(i)&&(i.purchased==null||num(i.purchased)&&i.purchased<=i.quantity)&&(i.notes===undefined||str(i.notes,2000))&&(i.priority===undefined||['پایین','معمولی','بالا'].includes(i.priority))&&(i.costType===undefined||costTypes.includes(i.costType))&&(i.priceHistory===undefined||validHistory(i.priceHistory))&&(i.offers===undefined||validOffers(i.offers)))||new Set(saved.items.map(i=>i.id)).size!==saved.items.length)throw Error('invalid');
+      if(backup?.version!==1||!saved||!num(saved.reserve)||!Array.isArray(saved.items)||saved.items.length>10000||!saved.items.every(i=>valid(i)&&(i.dependencyId===undefined||str(i.dependencyId,100))&&(i.purchased==null||num(i.purchased)&&i.purchased<=i.quantity)&&(i.notes===undefined||str(i.notes,2000))&&(i.priority===undefined||['پایین','معمولی','بالا'].includes(i.priority))&&(i.costType===undefined||costTypes.includes(i.costType))&&(i.priceHistory===undefined||validHistory(i.priceHistory))&&(i.offers===undefined||validOffers(i.offers)))||new Set(saved.items.map(i=>i.id)).size!==saved.items.length)throw Error('invalid');
       if(selected!==projectId){msg('پروژه انتخابی عوض شد؛ دوباره فایل را انتخاب کنید.');return;}
       const current=state(), ids=new Set(current.items.map(i=>i.id)), added=saved.items.filter(i=>!ids.has(i.id));
       if(current.items.length+added.length>10000)throw Error('too many');
@@ -236,8 +248,9 @@
   $('checkCsv').onclick=()=>{
     if(!selected)return;
     const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
-    const rows=[['فعالیت','مرحله','مقدار','واحد','قیمت واحد تومان','هزینه اضافی تومان','برآورد تومان','وضعیت هزینه','پرداخت یا تعهد تومان','انجام شده','منبع','تاریخ قیمت','مسئول','موعد','اولویت','نوع هزینه','توضیحات','مقدار تهیه‌شده']];
-    for(const item of state().items)rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.paid,item.done?'بله':'خیر',item.source,item.date,item.assignee||'',item.due||'',item.priority||'معمولی',item.costType||costTypes[0],item.notes||'',item.purchased??'']);
+    const rows=[['فعالیت','مرحله','مقدار','واحد','قیمت واحد تومان','هزینه اضافی تومان','برآورد تومان','وضعیت هزینه','پرداخت یا تعهد تومان','انجام شده','منبع','تاریخ قیمت','مسئول','موعد','اولویت','نوع هزینه','توضیحات','مقدار تهیه‌شده','پیش‌نیاز','وضعیت پیش‌نیاز']];
+    const items=state().items;
+    for(const item of items){const prior=item.dependencyId&&items.find(x=>x.id===item.dependencyId);rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.paid,item.done?'بله':'خیر',item.source,item.date,item.assignee||'',item.due||'',item.priority||'معمولی',item.costType||costTypes[0],item.notes||'',item.purchased??'',prior?prior.name:item.dependencyId?'یافت نشد':'',prior?(prior.done?'انجام شده':'انجام نشده'):'']);}
     const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('گزارش CSV ساخته شد.');
   };

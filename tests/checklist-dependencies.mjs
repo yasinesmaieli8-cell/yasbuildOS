@@ -1,0 +1,29 @@
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+
+function element(){return {children:[],value:'',textContent:'',hidden:false,selectionStart:0,form:null,handlers:{},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},replaceChildren(){this.children=[]},set onclick(f){this.handlers.click=f},set onchange(f){this.handlers.change=f},set onsubmit(f){this.handlers.submit=f},addEventListener(k,f){this.handlers[k]=f},setCustomValidity(){},setSelectionRange(){},reset(){},focus(){},click(){this.handlers.click?.()},reportValidity(){return true}};}
+const els={},el=id=>els[id] ||=element(),nav=element();
+const base={stage:'پی',quantity:1,unit:'مورد',unitPrice:null,extra:0,paid:0,status:'برآورد',source:'',date:'',done:false};
+const store={'yasbuildos.projects.v1':JSON.stringify([{id:'p',name:'پروژه',budget:100}]),'yasbuildos.checklist.v1':JSON.stringify({p:{reserve:0,items:[{...base,id:'a',name:'خاک‌برداری'},{...base,id:'b',name:'اجرای پی'}]}})};
+const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}};
+const document={getElementById:el,createElement:element,querySelector:()=>nav};let blob,approve=true;
+const URL={createObjectURL(b){blob=b;return 'blob:test'},revokeObjectURL(){}};
+const window={addEventListener(){},print(){}};
+vm.runInNewContext(await readFile('budget-input.js','utf8'),{document,window,queueMicrotask});
+vm.runInNewContext(await readFile('checklist.js','utf8'),{document,window,localStorage,Intl,crypto:{randomUUID:()=> 'new'},confirm:()=>approve,URL,Blob,setTimeout});
+el('checkProject').value='p';el('checkProject').handlers.change();
+const saved=()=>JSON.parse(store['yasbuildos.checklist.v1']).p.items;
+const row=name=>el('checkItems').children.find(x=>x.children[0].textContent===name);
+const actions=name=>row(name).children.find(x=>x.className==='project-actions').children;
+actions('اجرای پی')[1].handlers.click();el('checkDepends').value='a';el('checkForm').handlers.submit({preventDefault(){}});
+assert.equal(saved()[1].dependencyId,'a');assert.ok(row('اجرای پی').children.some(x=>x.textContent.includes('پیش‌نیاز: خاک‌برداری')));
+actions('خاک‌برداری')[1].handlers.click();el('checkDepends').value='b';el('checkForm').handlers.submit({preventDefault(){}});assert.ok(el('checkMessage').textContent.includes('دوری'));assert.equal(saved()[0].dependencyId,undefined);
+el('checkCancel').handlers.click();approve=false;actions('اجرای پی')[0].handlers.click();assert.equal(saved()[1].done,false);
+approve=true;actions('اجرای پی')[0].handlers.click();assert.equal(saved()[1].done,true);
+el('checkPrint').handlers.click();assert.ok(el('printReport').children.some(x=>x.children.some(y=>y.textContent.includes('پیش‌نیاز: خاک‌برداری'))));
+el('checkCsv').handlers.click();assert.ok((await blob.text()).includes('خاک‌برداری'));
+actions('خاک‌برداری')[2].handlers.click();assert.ok(row('اجرای پی').children.some(x=>x.textContent.includes('پیش‌نیاز یافت نشد')));
+actions('اجرای پی')[1].handlers.click();el('checkForm').handlers.submit({preventDefault(){}});assert.ok(el('checkMessage').textContent.includes('پیش‌نیاز یافت نشد'));assert.equal(saved()[0].dependencyId,'a');
+el('checkDepends').value='';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(saved()[0].dependencyId,'');
+console.log('PASS checklist prerequisites, cycles, warnings, deletion and reports');
