@@ -26,6 +26,11 @@ approve=true;actions('اجرای پی')[0].handlers.click();assert.equal(saved()
 el('checkPrint').handlers.click();assert.ok(el('printReport').children.some(x=>x.children.some(y=>y.textContent.includes('پیش‌نیاز: خاک‌برداری'))));
 el('checkCsv').handlers.click();assert.ok((await blob.text()).includes('خاک‌برداری'));
 actions('خاک‌برداری')[2].handlers.click();assert.ok(row('اجرای پی').children.some(x=>x.textContent.includes('پیش‌نیاز یافت نشد')));
+assert.equal(el('checkUndoDelete').hidden,false);
+const changed=JSON.parse(store['yasbuildos.checklist.v1']);changed.p.reserve=25;store['yasbuildos.checklist.v1']=JSON.stringify(changed);
+el('checkUndoDelete').handlers.click();assert.equal(saved().length,1);assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p.reserve,25);
+el('checkReload').handlers.click();el('checkUndoDelete').handlers.click();assert.equal(saved().length,2);assert.equal(saved()[0].id,'a');assert.equal(saved()[1].dependencyId,'a');assert.equal(el('checkUndoDelete').hidden,true);
+actions('خاک‌برداری')[2].handlers.click();
 actions('اجرای پی')[1].handlers.click();el('checkForm').handlers.submit({preventDefault(){}});assert.ok(el('checkMessage').textContent.includes('پیش‌نیاز یافت نشد'));assert.equal(saved()[0].dependencyId,'a');
 el('checkDepends').value='';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(saved()[0].dependencyId,'');
 console.log('PASS checklist prerequisites, cycles, warnings, deletion and reports');

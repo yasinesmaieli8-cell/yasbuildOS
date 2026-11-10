@@ -5,7 +5,7 @@
   const money = n => number(n) + ' تومان';
   const stages = ['آماده‌سازی و مجوزها','خاک‌برداری','پی و فونداسیون','اسکلت و سقف','دیوارچینی','تأسیسات','نازک‌کاری','نما و محوطه','تحویل'];
   const costTypes = ['دسته‌بندی نشده','مصالح','دستمزد','حمل','تجهیزات','سایر هزینه‌ها'];
-  let all = {}, projects = [], selected = '', editing = null, editOriginal = null, healthy = true, reserveProject = null, lastRaw = null, openOffers = null;
+  let all = {}, projects = [], selected = '', editing = null, editOriginal = null, healthy = true, reserveProject = null, lastRaw = null, openOffers = null, deletedItem = null;
   const msg = text => { $('checkMessage').textContent = text; };
   function read() {
     try {
@@ -25,6 +25,10 @@
     catch (_) { msg('ذخیره انجام نشد؛ فضای ذخیره‌سازی مرورگر را بررسی کنید.'); return false; }
   }
   const state = () => all[selected] || {reserve:0, items:[]};
+  function showUndo() {
+    const button = $('checkUndoDelete');
+    button.hidden = !deletedItem || deletedItem.projectId !== selected;
+  }
   const materialCandidates = () => (state().items||[]).filter(item=>item.costType==='مصالح'&&!item.done&&(item.purchased==null||item.purchased<item.quantity));
   function resetForm(){ editing=null; editOriginal=null; $('checkForm').reset(); $('checkDepends').value=''; $('checkSubmit').textContent='افزودن ردیف'; $('checkCancel').hidden=true; }
   function refreshProjects() {
@@ -36,6 +40,7 @@
     selected=projects.some(p=>p.id===previous)?previous:''; $('checkProject').value=selected; reserveProject=null; render();
   }
   function render(){
+    showUndo();
     const box=$('checkContent'); box.hidden=!selected; if(!selected) return;
     const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[], byId=new Map(items.map(item=>[item.id,item]));
     const dependencies=$('checkDepends'), selectedDependency=dependencies.value;dependencies.replaceChildren();
@@ -92,7 +97,7 @@
       const toggle=document.createElement('button'); toggle.type='button'; toggle.className='btn secondary sm'; toggle.textContent=item.done?'علامت به‌عنوان انجام‌نشده':'علامت به‌عنوان انجام‌شده';
       toggle.onclick=()=>{const current=state();const prior=item.dependencyId&&current.items.find(x=>x.id===item.dependencyId);if(!item.done&&item.dependencyId&&(!prior||!prior.done)&&!confirm('پیش‌نیاز این فعالیت انجام نشده یا پیدا نشد. با این حال فعالیت انجام‌شده ثبت شود؟'))return; const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
       const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id;editOriginal=JSON.stringify(item); if(item.dependencyId&&!state().items.some(x=>x.id===item.dependencyId)){const missing=document.createElement('option');missing.value=item.dependencyId;missing.textContent='\u067e\u06cc\u0634\u200c\u0646\u06cc\u0627\u0632 \u062d\u0630\u0641\u200c\u0634\u062f\u0647';$('checkDepends').appendChild(missing);} for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkPurchased:item.purchased??'',checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||'',checkNotes:item.notes||'',checkDepends:item.dependencyId||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
-      const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{if(!confirm('این ردیف از چک‌لیست حذف شود؟'))return; const current=state(); if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){if(editing===item.id)resetForm();render();}};
+      const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{const current=state(), dependents=current.items.filter(x=>x.dependencyId===item.id).length;const warning=dependents?` ${number(dependents)} ردیف به آن وابسته است و پیش‌نیازشان نامشخص می‌شود.`:'';if(!confirm('این ردیف از چک‌لیست حذف شود؟'+warning))return;const index=current.items.findIndex(x=>x.id===item.id);if(index<0)return; if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){deletedItem={projectId:selected,item:current.items[index],index};if(editing===item.id)resetForm();render();msg('ردیف حذف شد؛ تا پیش از بستن یا تازه‌کردن صفحه می‌توانید آخرین ردیف حذف‌شده را بازگردانید.');}};
       const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0,purchased:null,priceHistory:[]};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و مقدار تهیه‌شده نامشخص است.');}};
       actions.append(toggle,edit,remove,copy); row.appendChild(actions); visibleRows.push({item,row});
       const offers=Array.isArray(item.offers)?item.offers:[];
@@ -161,6 +166,14 @@
   $('checkReload').onclick=()=>{refreshProjects();if(healthy)msg('فهرست به‌روزرسانی شد؛ اگر مشغول ویرایش بودید، تغییرات ردیف را بررسی کنید.');};
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=window.budgetInputs.checkReserve.get()??0;if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;
+  $('checkUndoDelete').onclick=()=>{
+    if(!deletedItem||deletedItem.projectId!==selected)return;
+    const current=state();
+    if(current.items.some(item=>item.id===deletedItem.item.id)){msg('ردیفی با همین شناسه وجود دارد؛ بازگردانی انجام نشد.');return;}
+    if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}
+    const items=[...current.items];items.splice(Math.min(deletedItem.index,items.length),0,deletedItem.item);
+    if(save({...all,[selected]:{...current,items}})){deletedItem=null;render();msg('ردیف حذف‌شده با اطلاعات و وابستگی‌های قبلی بازگردانده شد.');}
+  };
   $('checkForm').onsubmit=e=>{
     e.preventDefault(); if(!selected||!healthy||!$('checkForm').reportValidity())return;
     const n=id=>Number($(id).value), unitPrice=window.budgetInputs.checkUnitPrice.get();
