@@ -14,6 +14,7 @@
   let authPending = false;
   let logoutPending = false;
   let projectSavePending = false;
+  let projectImportPending = false;
   let passwordChangePending = false;
   let authRevision = 0;
   function hidePasswords() {
@@ -274,8 +275,8 @@
   el('cloudProjectCancel').addEventListener('click', resetProject);
   el('cloudRefresh').addEventListener('click', loadProjects);
   el('cloudImportLocal').addEventListener('click', async () => {
-    const userId = currentUser?.id;
-    if (!userId) return;
+    const userId = currentUser?.id,revision=authRevision;
+    if (!userId || projectImportPending) return;
     let local;
     try {
       const raw = localStorage.getItem('yasbuildos.projects.v1');
@@ -291,16 +292,17 @@
       && ['برنامه‌ریزی', 'در حال اجرا', 'متوقف', 'پایان‌یافته'].includes(p.status)
       && (p.area === null || (typeof p.area === 'number' && Number.isFinite(p.area) && p.area >= 0 && p.area <= 1000000000))
       && (p.budget === null || (typeof p.budget === 'number' && Number.isFinite(p.budget) && p.budget >= 0 && p.budget <= 1000000000000000));
-    el('cloudImportLocal').disabled = true;
+    projectImportPending=true;el('cloudImportLocal').disabled = true;
     let added = 0, skipped = 0, failed = 0;
     try {
       const { data, error } = await client.from('yb_projects').select('id');
-      if (error || currentUser?.id !== userId) throw new Error('unavailable');
+      if (error || currentUser?.id !== userId || revision!==authRevision) throw new Error('unavailable');
       const known = new Set(data.map(p => p.id));
       for (const p of local) {
-        if (currentUser?.id !== userId) { failed += local.length - added - skipped - failed; break; }
+        if (currentUser?.id !== userId || revision!==authRevision) break;
         if (!valid(p)) { failed++; continue; }
         const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('yasbuildos-import-v1:' + userId + ':' + p.id)));
+        if (currentUser?.id !== userId || revision!==authRevision) break;
         bytes[6] = (bytes[6] & 15) | 128; bytes[8] = (bytes[8] & 63) | 128;
         const hex = Array.from(bytes.slice(0, 16), b => b.toString(16).padStart(2, '0')).join('');
         const id = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
@@ -309,12 +311,12 @@
         const result = await client.from('yb_projects').insert(row);
         if (result.error) failed++; else { added++; known.add(id); }
       }
-      if (currentUser?.id === userId) {
+      if (currentUser?.id === userId && revision===authRevision) {
         await loadProjects();
-        projectMessage(`${added.toLocaleString('fa-IR')} پروژه منتقل شد؛ ${skipped.toLocaleString('fa-IR')} مورد تکراری و ${failed.toLocaleString('fa-IR')} مورد ناموفق بود. نسخه‌های محلی باقی ماندند.`);
+        if(currentUser?.id === userId && revision===authRevision)projectMessage(`${added.toLocaleString('fa-IR')} پروژه منتقل شد؛ ${skipped.toLocaleString('fa-IR')} مورد تکراری و ${failed.toLocaleString('fa-IR')} مورد ناموفق بود. نسخه‌های محلی باقی ماندند.`);
       }
-    } catch (_) { projectMessage(`انتقال کامل نشد؛ ${added.toLocaleString('fa-IR')} پروژه منتقل شد. ارتباط را بررسی و دوباره تلاش کنید؛ نسخه محلی تغییری نکرده است.`); }
-    finally { el('cloudImportLocal').disabled = false; }
+    } catch (_) { if(currentUser?.id===userId&&revision===authRevision)projectMessage(`انتقال کامل نشد؛ ${added.toLocaleString('fa-IR')} پروژه تأیید شد. پیش از تلاش دوباره، فهرست پروژه‌های ابری را بررسی کنید؛ نسخه محلی تغییری نکرده است.`); }
+    finally { projectImportPending=false;el('cloudImportLocal').disabled = false; }
   });
   el('cloudProjectForm').addEventListener('submit', async event => {
     event.preventDefault();
