@@ -37,7 +37,7 @@
     const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[];
     if(reserveProject!==selected){window.budgetInputs.checkReserve.set(s.reserve || null);reserveProject=selected;}
     let estimate=0, pricedBase=0, spent=0, committed=0, missing=0, done=0, shown=0, stale=0, undated=0;
-    const byStage=new Map(), byCostType=new Map();
+    const byStage=new Map(), byCostType=new Map(), visibleRows=[];
     const search=$('checkSearch').value.trim(), filter=$('checkFilter').value, costFilter=$('checkCostFilter').value, stageFilter=items.some(item=>item.stage===$('checkStageFilter').value)?$('checkStageFilter').value:'';
     const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
     const stageSelect=$('checkStageFilter'); stageSelect.replaceChildren();
@@ -83,13 +83,18 @@
       const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id; for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
       const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{if(!confirm('این ردیف از چک‌لیست حذف شود؟'))return; const current=state(); if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){if(editing===item.id)resetForm();render();}};
       const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0,priceHistory:[]};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و وضعیت آن برآورد است.');}};
-      actions.append(toggle,edit,remove,copy); row.appendChild(actions); $('checkItems').appendChild(row);
+      actions.append(toggle,edit,remove,copy); row.appendChild(actions); visibleRows.push({item,row});
       if(Array.isArray(item.priceHistory)&&item.priceHistory.length){
         const details=document.createElement('details'),heading=document.createElement('summary');heading.textContent=`سابقه قیمت (${number(item.priceHistory.length)} مورد)`;details.appendChild(heading);
         for(const previous of [...item.priceHistory].reverse()){const line=document.createElement('p');line.textContent=[previous.unitPrice===null?'قیمت نامشخص':money(previous.unitPrice)+' برای '+previous.unit,previous.date?'تاریخ قیمت: '+previous.date:'تاریخ قیمت ثبت نشده',previous.source?'منبع: '+previous.source:'منبع ثبت نشده','ثبت تغییر: '+new Date(previous.changedAt).toLocaleDateString('fa-IR')].join(' · ');details.appendChild(line);}
         row.appendChild(details);
       }
     }
+    const order=$('checkSort').value;
+    if(order==='due')visibleRows.sort((a,b)=>{const x=/^\d{4}-\d{2}-\d{2}$/.test(a.item.due||'')?a.item.due:'9999-99-99',y=/^\d{4}-\d{2}-\d{2}$/.test(b.item.due||'')?b.item.due:'9999-99-99';return x.localeCompare(y);});
+    if(order==='priority'){const rank={'بالا':0,'معمولی':1,'پایین':2};visibleRows.sort((a,b)=>(rank[a.item.priority]??1)-(rank[b.item.priority]??1));}
+    if(order==='name')visibleRows.sort((a,b)=>a.item.name.localeCompare(b.item.name,'fa'));
+    for(const entry of visibleRows)$('checkItems').appendChild(entry.row);
     if(!items.length) $('checkItems').textContent='هنوز ردیفی ثبت نشده است.';
     else if(!shown) $('checkItems').textContent='ردیفی با این جست‌وجو یا فیلتر پیدا نشد.';
     $('checkVisibleCount').textContent=`نمایش ${number(shown)} از ${number(items.length)} ردیف`;
@@ -121,7 +126,7 @@
   }
   const selectProject=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';resetForm();render();};
   $('checkProject').onchange=selectProject;
-  $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkCostFilter').onchange=render; $('checkScenario').oninput=render;
+  $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkCostFilter').onchange=render; $('checkSort').onchange=render; $('checkScenario').oninput=render;
   $('checkReload').onclick=refreshProjects;
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=window.budgetInputs.checkReserve.get()??0;if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;
