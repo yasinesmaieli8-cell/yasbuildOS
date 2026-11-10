@@ -50,6 +50,10 @@
     showUndo();
     const box=$('checkContent'); box.hidden=!selected; if(!selected) return;
     const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[], byId=new Map(items.map(item=>[item.id,item]));
+    const copySelect=$('checkCopyProject'),previousCopy=copySelect.value;copySelect.replaceChildren();
+    const copyBlank=document.createElement('option');copyBlank.value='';copyBlank.textContent='انتخاب پروژه مبدأ';copySelect.appendChild(copyBlank);
+    for(const candidate of projects){if(candidate.id===selected)continue;const option=document.createElement('option');option.value=candidate.id;option.textContent=candidate.name;copySelect.appendChild(option);}
+    copySelect.value=projects.some(p=>p.id===previousCopy&&p.id!==selected)?previousCopy:'';
     const dependencies=$('checkDepends'), selectedDependency=dependencies.value;dependencies.replaceChildren();
     const none=document.createElement('option');none.value='';none.textContent='بدون پیش‌نیاز';dependencies.appendChild(none);
     for(const candidate of items){if(candidate.id===editing)continue;const option=document.createElement('option');option.value=candidate.id;option.textContent=candidate.name+' · '+candidate.stage;dependencies.appendChild(option);}
@@ -303,6 +307,27 @@
     try{items=entries.map(([stage,name])=>({id:crypto.randomUUID(),name,stage,quantity:1,unit:choice==='stages'?'مرحله':'فعالیت',unitPrice:null,extra:0,status:'برآورد',paid:0,source:'',date:'',done:false}));}
     catch(_){msg('ساخت شناسه ردیف‌ها ممکن نشد؛ اطلاعات تغییری نکرد.');return;}
     if(save({...all,[selected]:{...current,items:[...current.items,...items]}})){msg('الگوی نمونه اضافه شد؛ فعالیت‌ها، مقادیر و قیمت‌ها را متناسب با پروژه بررسی و ویرایش کنید.');render();}
+  };
+  $('checkCopy').onclick=()=>{
+    if(!selected)return;
+    const sourceId=$('checkCopyProject').value,current=state(),source=all[sourceId];
+    if(!sourceId||sourceId===selected||!projects.some(p=>p.id===sourceId)){msg('یک پروژه مبدأ دیگر انتخاب کنید.');return;}
+    if(!source||!Array.isArray(source.items)||!source.items.length){msg('پروژه مبدأ ردیفی برای کپی ندارد.');return;}
+    if(!Array.isArray(current.items)||current.items.length+source.items.length>10000){msg('تعداد ردیف‌ها از سقف مجاز بیشتر می‌شود؛ کپی انجام نشد.');return;}
+    const text=(value,max)=>typeof value==='string'&&value.length<=max;
+    const amount=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=1e15;
+    const valid=source.items.every(item=>item&&text(item.id,100)&&item.id&&text(item.name,100)&&item.name.trim()&&text(item.stage,100)&&item.stage.trim()&&amount(item.quantity)&&text(item.unit,30)&&item.unit.trim()&&(item.unitPrice===null||amount(item.unitPrice))&&amount(item.extra)&&Number.isSafeInteger(Math.round(item.quantity*(item.unitPrice??0)+item.extra))&&text(item.source,200)&&text(item.date,10));
+    const sourceIds=new Set(source.items.map(item=>item?.id));
+    if(!valid||sourceIds.size!==source.items.length||hasDependencyCycle(source.items)||source.items.some(item=>item.dependencyId&&!sourceIds.has(item.dependencyId))){msg('ردیف‌ها یا پیش‌نیازهای پروژه مبدأ معتبر نیستند؛ ابتدا آن‌ها را بررسی کنید.');return;}
+    if(!confirm(`${number(source.items.length)} فعالیت به پروژه فعلی اضافه شود؟ قیمت‌های دستی کپی می‌شوند؛ پرداخت، تعهد، پیشرفت، مقدار تهیه‌شده، مسئول و موعد پاک می‌شوند.`))return;
+    try{
+      const liveProjects=JSON.parse(localStorage.getItem(projectKey)||'[]');
+      if(!Array.isArray(liveProjects)||![selected,sourceId].every(id=>liveProjects.some(p=>p&&p.id===id))){msg('فهرست پروژه‌ها تغییر کرده است؛ ابتدا آن را به‌روزرسانی کنید.');return;}
+      const existing=new Set(current.items.map(item=>item.id)),ids=new Map();
+      for(const item of source.items){const id=crypto.randomUUID();if(existing.has(id))throw Error('duplicate');existing.add(id);ids.set(item.id,id);}
+      const copies=source.items.map(item=>({id:ids.get(item.id),name:item.name,stage:item.stage,quantity:item.quantity,unit:item.unit,unitPrice:item.unitPrice,extra:item.extra,source:item.source,date:item.date,dependencyId:item.dependencyId?ids.get(item.dependencyId):'',priority:['پایین','معمولی','بالا'].includes(item.priority)?item.priority:'معمولی',costType:costTypes.includes(item.costType)?item.costType:costTypes[0],notes:text(item.notes,2000)?item.notes:'',status:'برآورد',paid:0,done:false,purchased:null,assignee:'',due:''}));
+      if(save({...all,[selected]:{...current,items:[...current.items,...copies]}})){render();msg(`${number(copies.length)} فعالیت کپی شد؛ قیمت‌های دستی را پیش از استفاده بررسی و به‌روز کنید.`);}
+    }catch(_){msg('کپی انجام نشد؛ اطلاعات پروژه تغییر نکرد.');}
   };
   $('checkCsv').onclick=()=>{
     if(!selected)return;
