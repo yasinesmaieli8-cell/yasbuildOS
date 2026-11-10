@@ -5,25 +5,28 @@
   const money = n => number(n) + ' تومان';
   const stages = ['آماده‌سازی و مجوزها','خاک‌برداری','پی و فونداسیون','اسکلت و سقف','دیوارچینی','تأسیسات','نازک‌کاری','نما و محوطه','تحویل'];
   const costTypes = ['دسته‌بندی نشده','مصالح','دستمزد','حمل','تجهیزات','سایر هزینه‌ها'];
-  let all = {}, projects = [], selected = '', editing = null, healthy = true, reserveProject = null;
+  let all = {}, projects = [], selected = '', editing = null, editOriginal = null, healthy = true, reserveProject = null, lastRaw = null;
   const msg = text => { $('checkMessage').textContent = text; };
   function read() {
     try {
       const raw = localStorage.getItem(key), saved = raw ? JSON.parse(raw) : {};
       if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw Error('invalid');
-      all = saved;
       const list = JSON.parse(localStorage.getItem(projectKey) || '[]');
       if (!Array.isArray(list)) throw Error('invalid');
+      all = saved; lastRaw = raw;
       projects = list.filter(p => p && typeof p.id === 'string' && typeof p.name === 'string');
     } catch (_) { healthy = false; msg('داده‌ها خوانده نشدند؛ برای جلوگیری از بازنویسی، ثبت اطلاعات غیرفعال است.'); }
   }
   function save(next) {
-    try { localStorage.setItem(key, JSON.stringify(next)); all = next; return true; }
+    try {
+      if(localStorage.getItem(key)!==lastRaw){msg('چک‌لیست در زبانه دیگری تغییر کرده است. برای جلوگیری از بازنویسی، ابتدا روی «به‌روزرسانی پروژه‌ها» بزنید و تغییرات را بررسی کنید.');return false;}
+      const raw=JSON.stringify(next);localStorage.setItem(key,raw);lastRaw=raw;all=next;return true;
+    }
     catch (_) { msg('ذخیره انجام نشد؛ فضای ذخیره‌سازی مرورگر را بررسی کنید.'); return false; }
   }
   const state = () => all[selected] || {reserve:0, items:[]};
   const materialCandidates = () => (state().items||[]).filter(item=>item.costType==='مصالح'&&!item.done&&(item.purchased==null||item.purchased<item.quantity));
-  function resetForm(){ editing=null; $('checkForm').reset(); $('checkSubmit').textContent='افزودن ردیف'; $('checkCancel').hidden=true; }
+  function resetForm(){ editing=null; editOriginal=null; $('checkForm').reset(); $('checkSubmit').textContent='افزودن ردیف'; $('checkCancel').hidden=true; }
   function refreshProjects() {
     const previous = selected;
     read(); if (!healthy) return;
@@ -81,7 +84,7 @@
       const actions=document.createElement('div'); actions.className='project-actions';
       const toggle=document.createElement('button'); toggle.type='button'; toggle.className='btn secondary sm'; toggle.textContent=item.done?'علامت به‌عنوان انجام‌نشده':'علامت به‌عنوان انجام‌شده';
       toggle.onclick=()=>{const current=state(); const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
-      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id; for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkPurchased:item.purchased??'',checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||'',checkNotes:item.notes||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
+      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id;editOriginal=JSON.stringify(item); for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkPurchased:item.purchased??'',checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||'',checkNotes:item.notes||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
       const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{if(!confirm('این ردیف از چک‌لیست حذف شود؟'))return; const current=state(); if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){if(editing===item.id)resetForm();render();}};
       const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0,purchased:null,priceHistory:[]};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و مقدار تهیه‌شده نامشخص است.');}};
       actions.append(toggle,edit,remove,copy); row.appendChild(actions); visibleRows.push({item,row});
@@ -128,7 +131,7 @@
   const selectProject=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';resetForm();render();};
   $('checkProject').onchange=selectProject;
   $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkCostFilter').onchange=render; $('checkSort').onchange=render; $('checkScenario').oninput=render;
-  $('checkReload').onclick=refreshProjects;
+  $('checkReload').onclick=()=>{refreshProjects();if(healthy)msg('فهرست به‌روزرسانی شد؛ اگر مشغول ویرایش بودید، تغییرات ردیف را بررسی کنید.');};
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=window.budgetInputs.checkReserve.get()??0;if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;
   $('checkForm').onsubmit=e=>{
@@ -138,7 +141,7 @@
     if(!item.name||!item.unit||!item.stage||item.stage.length>100||item.notes.length>2000||!['پایین','معمولی','بالا'].includes(item.priority)||!costTypes.includes(item.costType)||![item.quantity,item.extra,item.paid,...(unitPrice===null?[]:[unitPrice])].every(x=>Number.isFinite(x)&&x>=0&&x<=1e15)||!Number.isSafeInteger(Math.round(item.quantity*(unitPrice??0)+item.extra))){msg('مقدارها معتبر نیستند یا از محدوده قابل محاسبه بیشترند.');return;}
     if(item.purchased!==null&&(!Number.isFinite(item.purchased)||item.purchased<0||item.purchased>item.quantity)){msg('مقدار تهیه‌شده باید بین صفر و مقدار کل باشد.');return;}
     const s=state(), previous=editing?s.items.find(x=>x.id===editing):null;
-    if(editing&&!previous){msg('ردیف برای ویرایش پیدا نشد.');return;}
+    if(editing&&!previous){msg('ردیف برای ویرایش پیدا نشد.');return;} if(previous&&JSON.stringify(previous)!==editOriginal){msg('این ردیف پس از شروع ویرایش تغییر کرده است؛ متن خود را نگه دارید، ویرایش را لغو کنید و ردیف را دوباره باز کنید.');return;}
     if(previous){
       item.priceHistory=Array.isArray(previous.priceHistory)?previous.priceHistory.slice(-30):[];
       if(previous.unitPrice!==item.unitPrice||previous.unit!==item.unit||previous.source!==item.source||previous.date!==item.date){
@@ -221,6 +224,7 @@
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-open-materials.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('فهرست مصالح فعالیت‌های باز دانلود شد.');
   };
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
+  window.addEventListener('storage',event=>{if(event.key===key||event.key===null)msg('اطلاعات چک‌لیست در زبانه دیگری تغییر کرد. پیش از ادامه، فهرست را به‌روزرسانی کنید.');});
   document.querySelector('[data-tab="checklist"]').addEventListener('click',refreshProjects);
   window.yasbuildosOpenChecklist=id=>{
     refreshProjects();

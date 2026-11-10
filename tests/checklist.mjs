@@ -9,7 +9,7 @@ const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}};
 const document={getElementById:el,createElement:element,querySelector:()=>nav};
 let exported; const fakeURL={createObjectURL(blob){exported=blob;return 'blob:test'},revokeObjectURL(){}};
 let printed=false;
-const window={print(){printed=true}};
+const window={handlers:{},addEventListener(k,fn){this.handlers[k]=fn},print(){printed=true}};
 vm.runInNewContext(await readFile('budget-input.js','utf8'),{document,window,queueMicrotask});
 vm.runInNewContext(source,{document,localStorage,Intl,crypto:{randomUUID:()=> 'id-1'},confirm:()=>true,console,URL:fakeURL,Blob,setTimeout,window});
 el('checkProject').value='p1';el('checkProject').handlers.change();
@@ -76,4 +76,9 @@ el('checkSort').value='due';el('checkSort').handlers.change();assert.equal(el('c
 el('checkSort').value='priority';el('checkSort').handlers.change();assert.equal(el('checkItems').children[0].children[0].textContent,'سیمان');
 el('checkSort').value='name';el('checkSort').handlers.change();const names=el('checkItems').children.map(row=>row.children[0].textContent);assert.deepEqual(names,[...names].sort((a,b)=>a.localeCompare(b,'fa')));
 assert.equal(store['yasbuildos.checklist.v1'],beforeSort);assert.equal(el('checkSpent').textContent,beforeSpent);
+el('checkSort').value='original';el('checkSort').handlers.change();el('checkSearch').value='سیمان';el('checkSearch').oninput();
+const action=el('checkItems').children[0].children.find(x=>x.className==='project-actions');action.children[1].handlers.click();
+const changedElsewhere=JSON.parse(store['yasbuildos.checklist.v1']);changedElsewhere.p1.items[0].name='ویرایش زبانه دیگر';store['yasbuildos.checklist.v1']=JSON.stringify(changedElsewhere);window.handlers.storage({key:'yasbuildos.checklist.v1'});assert.ok(el('checkMessage').textContent.includes('زبانه دیگری'));
+el('checkName').value='ویرایش من';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].name,'ویرایش زبانه دیگر');assert.ok(el('checkMessage').textContent.includes('بازنویسی'));
+el('checkReload').handlers.click();el('checkForm').handlers.submit({preventDefault(){}});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].name,'ویرایش زبانه دیگر');assert.ok(el('checkMessage').textContent.includes('پس از شروع ویرایش تغییر کرده'));
 console.log('PASS manual price, estimate, paid amount, reserve, balance, persistence and completion');
