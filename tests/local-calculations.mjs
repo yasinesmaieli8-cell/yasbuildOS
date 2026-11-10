@@ -1,0 +1,21 @@
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+function node(){return {children:[],value:'',textContent:'',style:{},handlers:{},appendChild(child){this.children.push(child)},replaceChildren(){this.children=[]},addEventListener(name,fn){this.handlers[name]=fn}};}
+const elements={};const el=id=>elements[id] ||= node(),nav=node();
+const document={getElementById:el,createElement:node,querySelector:()=>nav};
+const store={'yasbuildos.projects.v1':JSON.stringify([{id:'p',name:'خانه'}])};
+const localStorage={getItem:key=>store[key]??null,setItem:(key,value)=>{store[key]=value}};
+let counter=0,confirmDelete=true;
+const window={ybCurrentResult:{tool:'بتن',inputs:{طول:2},outputs:{حجم:4}},ybStairResult:null};
+vm.runInNewContext(await readFile('local-calculations.js','utf8'),{document,window,localStorage,crypto:{randomUUID:()=>`uuid-${++counter}`},confirm:()=>confirmDelete,Date,JSON,Number,Array,Object,Set});
+el('runnerLocalLoad').handlers.click();assert.equal(el('runnerLocalProject').children.length,2);
+el('runnerLocalProject').value='p';el('runnerLocalSave').handlers.click();
+let checks=JSON.parse(store['yasbuildos.checklist.v1']);assert.equal(checks.p.calculations[0].result.outputs.حجم,4);assert.deepEqual(checks.p.items,[]);
+el('checkProject').value='p';el('checkProject').handlers.change();assert.equal(el('checkCalculations').children.length,1);
+const card=el('checkCalculations').children[0];assert.ok(card.children[0].textContent.includes('بتن'));assert.ok(card.children[1].textContent.includes('حجم'));
+confirmDelete=false;card.children[2].handlers.click();assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p.calculations.length,1);
+confirmDelete=true;card.children[2].handlers.click();assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p.calculations.length,0);
+el('stairLocalProject').value='p';el('stairLocalSave').handlers.click();assert.ok(el('stairLocalMessage').textContent.includes('معتبر'));
+window.ybCurrentResult={tool:'بتن',outputs:{large:'x'.repeat(20001)}};const before=store['yasbuildos.checklist.v1'];el('runnerLocalSave').handlers.click();assert.equal(store['yasbuildos.checklist.v1'],before);
+console.log('PASS local calculation save, display, delete and limits');
