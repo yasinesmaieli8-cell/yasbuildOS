@@ -104,19 +104,22 @@
     authPending = true;
     el('cloudActions').disabled = true;
     message('در حال ارتباط با سرویس…');
+    const revision=authRevision;
     try {
       let result;
       if (action === 'signup') result = await client.auth.signUp({ email, password, options: { emailRedirectTo: redirect } });
       else if (action === 'login') result = await client.auth.signInWithPassword({ email, password });
       else result = await client.auth.resetPasswordForEmail(email, { redirectTo: redirect });
+      const resultUser=result?.data?.session?.user?.id;
+      if ((revision!==authRevision && !(resultUser && currentUser?.id===resultUser)) || field('cloudEmail')!==email) return;
       if (result.error) { message(showError(result.error, action === 'login' ? 'ایمیل یا گذرواژه معتبر نیست، یا ایمیل هنوز تأیید نشده است.' : 'درخواست انجام نشد؛ ممکن است ارسال ایمیل برای این نشانی فعال نباشد.')); return; }
-      el('cloudPassword').value = '';
-      el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true;
+      if(el('cloudPassword').value===password)el('cloudPassword').value = '';
+      if(el('cloudPasswordConfirm').value===password){el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true;}
       hidePasswords();
       if (action === 'signup') message(result.data.session ? 'حساب ساخته شد.' : 'اگر ثبت‌نام پذیرفته شده باشد، پیام تأیید را در ایمیلت بررسی کن.');
       else if (action === 'reset') message('اگر این نشانی قابل بازیابی باشد، دستورالعمل به ایمیل ارسال می‌شود.');
       else message('وارد حساب شدی.');
-    } catch (_) { message('ارتباط با سرویس برقرار نشد.'); }
+    } catch (_) { if(revision===authRevision && field('cloudEmail')===email)message('ارتباط با سرویس برقرار نشد.'); }
     finally { authPending = false; el('cloudActions').disabled = false; }
   }
   for (const [id, action] of [['cloudLogin','login'], ['cloudSignup','signup'], ['cloudReset','reset']]) el(id).addEventListener('click', () => authAction(action));
