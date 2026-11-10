@@ -48,14 +48,21 @@
   }
 
   const number = value => new Intl.NumberFormat('fa-IR', {maximumFractionDigits: 2}).format(value);
+  const normalize = value => String(value || '').normalize('NFKC').replace(/[يك]/g, c => c === 'ي' ? 'ی' : 'ک').toLocaleLowerCase().trim();
   function render() {
     list.replaceChildren();
-    count.textContent = number(projects.length) + ' پروژه';
+    const query=normalize(byId('projectSearch').value), status=byId('projectStatusFilter').value;
+    const filtered=projects.filter(p=>(!query||normalize([p.name,p.city,p.type].filter(Boolean).join(' ')).includes(query))&&(!status||p.status===status));
+    count.textContent = 'نمایش ' + number(filtered.length) + ' از ' + number(projects.length) + ' پروژه';
     if (!projects.length) {
       addText(list, 'p', 'هنوز پروژه‌ای ثبت نشده است. از فرم مقابل، نخستین پروژه را بسازید.', 'project-empty');
       return;
     }
-    for (const project of [...projects].reverse()) {
+    if (!filtered.length) {
+      addText(list, 'p', 'پروژه‌ای با این جست‌وجو یا وضعیت پیدا نشد.', 'project-empty');
+      return;
+    }
+    for (const project of [...filtered].reverse()) {
       const card = document.createElement('article');
       card.className = 'project-item';
       addText(card, 'h3', project.name);
@@ -109,6 +116,8 @@
 
   projects = read();
   if (projects === null) return;
+  byId('projectSearch').addEventListener('input',render);
+  byId('projectStatusFilter').addEventListener('change',render);
   render();
   window.addEventListener('storage', event => {
     if (event.key !== key && event.key !== null) return;
