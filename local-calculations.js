@@ -33,12 +33,18 @@
   }
   setup('runner',()=>window.ybCurrentResult);setup('stair',()=>window.ybStairResult);
   const list=$('checkCalculations'),status=$('checkCalculationsMessage');
+  function fields(value,path=''){
+    if(value===null||typeof value!=='object')return [[path,value===null?'ثبت نشده':value]];
+    if(Array.isArray(value))return value.flatMap((entry,index)=>entry&&typeof entry==='object'&&!Array.isArray(entry)&&typeof entry.عنوان==='string'&&Object.hasOwn(entry,'مقدار')?fields(entry.مقدار,[path,entry.عنوان].filter(Boolean).join(' / ')):fields(entry,[path,String(index+1)].filter(Boolean).join(' / ')));
+    return Object.entries(value).flatMap(([key,entry])=>fields(entry,[path,key.replaceAll('_',' ')].filter(Boolean).join(' / ')));
+  }
+  function rowsFor(item){return [...fields(item.result.inputs??{},'ورودی'),...fields(item.result.outputs??{},'نتیجه')];}
   function render(){
     list.replaceChildren();const id=$('checkProject').value;if(!id){status.textContent='ابتدا پروژه را انتخاب کنید.';return;}
     try{const data=read(),state=data.checks[id]??{reserve:0,items:[]},items=records(state);status.textContent=items.length?`${items.length.toLocaleString('fa-IR')} محاسبه ذخیره‌شده در این مرورگر`:'محاسبه‌ای برای این پروژه ثبت نشده است.';
       for(const item of [...items].reverse()){
         const details=document.createElement('details');details.className='project-item';const title=document.createElement('summary');title.textContent=item.result.tool+' · '+new Date(item.createdAt).toLocaleString('fa-IR');details.appendChild(title);
-        const content=document.createElement('pre');content.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;direction:rtl';content.textContent=JSON.stringify(item.result,null,2);details.appendChild(content);
+        for(const [label,value] of rowsFor(item)){const line=document.createElement('p');line.textContent=label+': '+(typeof value==='number'?new Intl.NumberFormat('fa-IR',{maximumSignificantDigits:10}).format(value):String(value));details.appendChild(line);}
         const del=document.createElement('button');del.type='button';del.className='btn secondary sm';del.textContent='حذف این محاسبه';del.addEventListener('click',()=>{
           if(!confirm('این محاسبه از پروژه محلی حذف شود؟'))return;
           try{const now=read(),current=now.checks[id],all=records(current);if(!all.some(r=>r.id===item.id&&JSON.stringify(r)===JSON.stringify(item)))throw Error('changed');
@@ -49,5 +55,13 @@
       }
     }catch(_){status.textContent='محاسبات خوانده نشدند؛ داده‌های محلی را بررسی کنید.';}
   }
+  $('checkCalculationsCsv').addEventListener('click',()=>{
+    try{const id=$('checkProject').value;if(!id){status.textContent='ابتدا پروژه را انتخاب کنید.';return;}const data=read(),items=records(data.checks[id]??{});
+      if(!items.length){status.textContent='محاسبه‌ای برای دریافت گزارش وجود ندارد.';return;}
+      const cell=value=>{let text=String(value??'');if(typeof value!=='number'&&/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+      const rows=[['ابزار','زمان ثبت میلادی','عنوان ورودی یا نتیجه','مقدار']];for(const item of items)for(const [label,value] of rowsFor(item))rows.push([item.result.tool,item.createdAt,label,value]);
+      const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='yasbuildos-calculations.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='گزارش محاسبات ذخیره‌شده آماده شد.';
+    }catch(_){status.textContent='گزارش محاسبات ساخته نشد؛ اطلاعات و دسترسی مرورگر را بررسی کنید.';}
+  });
   $('checkProject').addEventListener('change',render);$('checkReload').addEventListener('click',render);document.querySelector('[data-tab="checklist"]').addEventListener('click',render);
 })();
