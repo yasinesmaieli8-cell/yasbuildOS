@@ -24,24 +24,24 @@
   window.yasCloud = {
     isSignedIn() { return Boolean(currentUser); },
     async courseEnrollment(courseId) {
-      const userId=currentUser?.id;if(!userId)throw Error('login');
+      const userId=currentUser?.id,revision=authRevision;if(!userId)throw Error('login');
       const {data,error}=await client.from('yb_course_enrollments').select('course_id').eq('user_id',userId).eq('course_id',courseId).maybeSingle();
-      if(error||currentUser?.id!==userId)throw error||Error('session changed');
+      if(error||currentUser?.id!==userId||authRevision!==revision)throw error||Error('session changed');
       return Boolean(data);
     },
     async enrollCourse(courseId) {
-      const userId=currentUser?.id;if(!userId)throw Error('login');
+      const userId=currentUser?.id,revision=authRevision;if(!userId)throw Error('login');
       const {error}=await client.from('yb_course_enrollments').upsert({user_id:userId,course_id:courseId},{onConflict:'user_id,course_id',ignoreDuplicates:true});
-      if(error||currentUser?.id!==userId)throw error||Error('session changed');
+      if(error||currentUser?.id!==userId||authRevision!==revision)throw error||Error('session changed');
       return window.yasCloud.courseEnrollment(courseId);
     },
     async projects() {
       if (!currentUser) throw new Error('login');
-      const userId = currentUser.id;
+      const userId = currentUser.id, revision = authRevision;
       const { data, error } = await client.from('yb_projects').select('id,name,owner_id').order('created_at', { ascending: false });
-      if (error || currentUser?.id !== userId) throw error || new Error('session changed');
+      if (error || currentUser?.id !== userId || authRevision!==revision) throw error || new Error('session changed');
       const membership = await client.from('yb_project_members').select('project_id,role,status').eq('user_id', userId);
-      if (currentUser?.id !== userId) throw new Error('session changed');
+      if (currentUser?.id !== userId || authRevision!==revision) throw new Error('session changed');
       const editable = new Set((membership.data || []).filter(m => m.status === 'active' && m.role === 'editor').map(m => m.project_id));
       return data.filter(p => p.owner_id === userId || editable.has(p.id));
     },
