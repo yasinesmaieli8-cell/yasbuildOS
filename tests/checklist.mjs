@@ -16,6 +16,7 @@ el('checkReserve').value='10000000';el('checkReserveSave').handlers.click();
 assert.equal(el('checkEstimate').textContent,'۲۰٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkBalance').textContent,'۷۵٬۰۰۰٬۰۰۰ تومان');
+assert.equal(el('checkPlanBalance').textContent,'۷۰٬۰۰۰٬۰۰۰ تومان');
 el('checkScenario').value='10';el('checkScenario').oninput();assert.equal(el('checkScenarioResult').textContent,'برآورد سناریو: ۲۲٬۰۰۰٬۰۰۰ تومان');assert.ok(el('checkPriceAge').textContent.includes('۱ قیمت تاریخ ندارد'));
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,1);
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].assignee,'علی');assert.ok(el('checkItems').children[0].children[2].textContent.includes('موعد گذشته'));
@@ -29,10 +30,11 @@ assert.ok(el('checkEstimate').textContent.includes('۹ قلم بدون قیمت'
 el('checkName').value='=1+1';el('checkStage').value='پی';el('checkQuantity').value='1';el('checkUnit').value='عدد';el('checkUnitPrice').value='';el('checkExtra').value='0';el('checkStatus').value='برآورد';el('checkPaid').value='0';el('checkForm').handlers.submit({preventDefault(){}});
 el('checkCsv').handlers.click();assert.ok((await exported.text()).includes('"\'=1+1"'));
 const before=JSON.parse(store['yasbuildos.checklist.v1']).p1;
-const imported={version:1,checklist:{reserve:999,items:[{id:'foreign',name:'بلوک',stage:'دیوارچینی',quantity:20,unit:'عدد',unitPrice:500,extra:0,status:'برآورد',paid:0,source:'',date:'',done:false}]}};
+const imported={version:1,checklist:{reserve:999,items:[{id:'foreign',name:'بلوک',stage:'محوطه ویژه',quantity:20,unit:'عدد',unitPrice:500,extra:0,status:'برآورد',paid:0,source:'',date:'',done:false}]}};
 const fileInput=el('checkImport'); fileInput.files=[{size:100,text:async()=>JSON.stringify(imported)}];
 await fileInput.handlers.change({currentTarget:fileInput});
 let restored=JSON.parse(store['yasbuildos.checklist.v1']).p1;assert.equal(restored.items.length,before.items.length+1);assert.equal(restored.reserve,10000000);
+assert.equal(restored.items.at(-1).stage,'محوطه ویژه');assert.ok(el('checkPlanBalance').textContent.includes('بدون احتساب اقلام بی‌قیمت'));
 fileInput.files=[{size:100,text:async()=>JSON.stringify(imported)}];await fileInput.handlers.change({currentTarget:fileInput});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,restored.items.length);
 fileInput.files=[{size:100,text:async()=>'{bad'}];await fileInput.handlers.change({currentTarget:fileInput});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,restored.items.length);
 el('checkSearch').value='بلوک';el('checkSearch').oninput();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
@@ -41,4 +43,5 @@ el('checkSearch').value='';el('checkFilter').value='missing';el('checkFilter').h
 el('checkFilter').value='all';el('checkStageFilter').value='پی';el('checkStageFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۲ از ۱۲ ردیف');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');el('checkStageFilter').value='';el('checkStageFilter').handlers.change();
 el('checkFilter').value='all';el('checkFilter').handlers.change();el('checkItems').children[0].children[3].children[3].handlers.click();
 restored=JSON.parse(store['yasbuildos.checklist.v1']).p1;assert.equal(restored.items.at(-1).paid,0);assert.equal(restored.items.at(-1).status,'برآورد');assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
+el('checkCustomStage').value='تأمین تجهیزات';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.at(-1).stage,'تأمین تجهیزات');
 console.log('PASS manual price, estimate, paid amount, reserve, balance, persistence and completion');
