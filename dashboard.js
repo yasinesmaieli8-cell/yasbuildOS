@@ -21,10 +21,28 @@
     }
     return blocked;
   }
+  function stageRisks(projects,checks){
+    const risks=[];
+    for(const project of projects){
+      const data=checks[project.id]||{},items=Array.isArray(data.items)?data.items:[],allocations=Array.isArray(data.stageBudgets)?data.stageBudgets:[];
+      for(const allocation of allocations){
+        if(!allocation||typeof allocation.stage!=='string'||typeof allocation.amount!=='number'||!Number.isFinite(allocation.amount)||allocation.amount<0)continue;
+        let estimate=0,actual=0,missing=0;
+        for(const item of items){
+          if(item.stage!==allocation.stage)continue;
+          if(item.unitPrice===null)missing++;
+          else if([item.quantity,item.unitPrice,item.extra].every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0))estimate+=item.quantity*item.unitPrice+item.extra;
+          if((item.status==='پرداخت‌شده'||item.status==='متعهدشده')&&typeof item.paid==='number'&&Number.isFinite(item.paid)&&item.paid>=0)actual+=item.paid;
+        }
+        if(estimate>allocation.amount||actual>allocation.amount)risks.push({project:project.name,projectId:project.id,stage:allocation.stage,limit:allocation.amount,estimate,actual,missing});
+      }
+    }
+    return risks;
+  }
   function render(){
     const list=$('dashProjects'); list.replaceChildren();
     try {
-      const {projects,checks}=readData(),due=dueItems(projects,checks),blocked=blockedItems(projects,checks);
+      const {projects,checks}=readData(),due=dueItems(projects,checks),blocked=blockedItems(projects,checks),risks=stageRisks(projects,checks);
       let rows=0, done=0, spent=0, commitments=0, missing=0;
       for(const p of projects){
         const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[];
@@ -81,6 +99,16 @@
         row.append(desc,open);waiting.appendChild(row);
       }
       if(!blocked.length)waiting.textContent='فعالیتی منتظر پیش‌نیاز ثبت نشده است.';
+      const riskList=$('dashStageRisks');riskList.replaceChildren();
+      $('dashStageRiskCount').textContent=`${fmt(risks.length)} مرحله با برآورد یا پرداخت و تعهد بیشتر از سقف · نمایش حداکثر ۵ مورد`;
+      for(const risk of risks.slice(0,5)){
+        const row=document.createElement('div'),desc=document.createElement('p'),open=document.createElement('button');
+        desc.textContent=[risk.project,risk.stage,`سقف: ${fmt(risk.limit)} تومان`,`برآورد: ${fmt(risk.estimate)} تومان`,`پرداخت و تعهد: ${fmt(risk.actual)} تومان`,risk.missing?`${fmt(risk.missing)} ردیف بدون قیمت`: ''].filter(Boolean).join(' · ');
+        open.type='button';open.className='btn secondary sm';open.textContent='بررسی بودجه پروژه';open.setAttribute('aria-label','بررسی بودجه پروژه '+risk.project+'، مرحله '+risk.stage);
+        open.addEventListener('click',()=>{if(!window.yasbuildosOpenChecklist||!window.yasbuildosOpenChecklist(risk.projectId))$('dashSummary').textContent='باز کردن پروژه ممکن نشد؛ فهرست پروژه‌ها را بررسی کنید.';});
+        row.append(desc,open);riskList.appendChild(row);
+      }
+      if(!risks.length)riskList.textContent='مرحله‌ای با عبور ثبت‌شده از سقف وجود ندارد. ردیف‌های بدون قیمت در برآورد کامل لحاظ نمی‌شوند.';
     }catch(_){$('dashSummary').textContent='اطلاعات محلی خوانده نشد. دسترسی مرورگر به فضای ذخیره‌سازی را بررسی کنید.';}
   }
   $('dashDueCsv').addEventListener('click',()=>{
