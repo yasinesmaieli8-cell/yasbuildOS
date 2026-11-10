@@ -12,8 +12,9 @@ const unitGroups = {
 function convertUnit(group, from, to, value){
   const data=unitGroups[group];
   if(!data || !Object.hasOwn(data.units,from) || !Object.hasOwn(data.units,to) || !Number.isFinite(value) || (data.nonnegative && value<0)) throw new Error('ورودی یا واحد نامعتبر است.');
-  const result=value*data.units[from]/data.units[to];
+  const result=value*(data.units[from]/data.units[to]);
   if(!Number.isFinite(result)) throw new Error('عدد برای محاسبه بیش از حد بزرگ است.');
+  if(value!==0 && result===0) throw new Error('عدد برای نمایش دقیق بیش از حد کوچک است.');
   return result;
 }
 
@@ -35,7 +36,9 @@ function openUnitConverter(){
     last=null; window.ybCurrentResult=null;
     if(input.value==='' || !input.validity.valid){$('runnerCards').textContent='مقدار معتبر وارد کنید.';return}
     try{
-      const value=Number(input.value),result=convertUnit(group.value,from.value,to.value,value),factor=convertUnit(group.value,from.value,to.value,1);
+      const value=Number(input.value);
+      if(value===0 && /[1-9]/.test(input.value.split(/[eE]/)[0])) throw new Error('عدد ورودی برای محاسبه دقیق بیش از حد کوچک است.');
+      const result=convertUnit(group.value,from.value,to.value,value),factor=convertUnit(group.value,from.value,to.value,1);
       const number=new Intl.NumberFormat('fa-IR',{maximumSignificantDigits:10});
       last={کمیت:group.value,مقدار:value,مبدأ:from.value,مقصد:to.value,نتیجه:result,ضریب:factor,مبنا:unitGroups[group.value].base,منبع:'NIST SP 811 Appendix B'};
       window.ybCurrentResult={tool:'تبدیل واحدهای مهندسی',inputs:{کمیت:group.value,مقدار:value,مبدأ:from.value,مقصد:to.value},outputs:{نتیجه:result,ضریب:factor,مبنا:unitGroups[group.value].base}};
