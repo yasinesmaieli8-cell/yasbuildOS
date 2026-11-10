@@ -81,8 +81,13 @@
       toggle.onclick=()=>{const current=state(); const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
       const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id; for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
       const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{if(!confirm('این ردیف از چک‌لیست حذف شود؟'))return; const current=state(); if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){if(editing===item.id)resetForm();render();}};
-      const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و وضعیت آن برآورد است.');}};
+      const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0,priceHistory:[]};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و وضعیت آن برآورد است.');}};
       actions.append(toggle,edit,remove,copy); row.appendChild(actions); $('checkItems').appendChild(row);
+      if(Array.isArray(item.priceHistory)&&item.priceHistory.length){
+        const details=document.createElement('details'),heading=document.createElement('summary');heading.textContent=`سابقه قیمت (${number(item.priceHistory.length)} مورد)`;details.appendChild(heading);
+        for(const previous of [...item.priceHistory].reverse()){const line=document.createElement('p');line.textContent=[previous.unitPrice===null?'قیمت نامشخص':money(previous.unitPrice)+' برای '+previous.unit,previous.date?'تاریخ قیمت: '+previous.date:'تاریخ قیمت ثبت نشده',previous.source?'منبع: '+previous.source:'منبع ثبت نشده','ثبت تغییر: '+new Date(previous.changedAt).toLocaleDateString('fa-IR')].join(' · ');details.appendChild(line);}
+        row.appendChild(details);
+      }
     }
     if(!items.length) $('checkItems').textContent='هنوز ردیفی ثبت نشده است.';
     else if(!shown) $('checkItems').textContent='ردیفی با این جست‌وجو یا فیلتر پیدا نشد.';
@@ -123,7 +128,15 @@
     const n=id=>Number($(id).value), unitPrice=window.budgetInputs.checkUnitPrice.get();
     const item={id:editing||crypto.randomUUID(),name:$('checkName').value.trim(),stage:$('checkCustomStage').value.trim()||$('checkStage').value,priority:$('checkPriority').value||'معمولی',costType:$('checkCostType').value||costTypes[0],quantity:n('checkQuantity'),unit:$('checkUnit').value.trim(),unitPrice,extra:window.budgetInputs.checkExtra.get()??0,status:$('checkStatus').value,paid:window.budgetInputs.checkPaid.get()??0,source:$('checkSource').value.trim(),date:$('checkDate').value,assignee:$('checkAssignee').value.trim(),due:$('checkDue').value,done:editing?(state().items.find(x=>x.id===editing)?.done||false):false};
     if(!item.name||!item.unit||!item.stage||item.stage.length>100||!['پایین','معمولی','بالا'].includes(item.priority)||!costTypes.includes(item.costType)||![item.quantity,item.extra,item.paid,...(unitPrice===null?[]:[unitPrice])].every(x=>Number.isFinite(x)&&x>=0&&x<=1e15)||!Number.isSafeInteger(Math.round(item.quantity*(unitPrice??0)+item.extra))){msg('مقدارها معتبر نیستند یا از محدوده قابل محاسبه بیشترند.');return;}
-    const s=state(), items=editing?s.items.map(x=>x.id===editing?item:x):[...(s.items||[]),item];
+    const s=state(), previous=editing?s.items.find(x=>x.id===editing):null;
+    if(editing&&!previous){msg('ردیف برای ویرایش پیدا نشد.');return;}
+    if(previous){
+      item.priceHistory=Array.isArray(previous.priceHistory)?previous.priceHistory.slice(-30):[];
+      if(previous.unitPrice!==item.unitPrice||previous.unit!==item.unit||previous.source!==item.source||previous.date!==item.date){
+        item.priceHistory=[...item.priceHistory,{unitPrice:previous.unitPrice,unit:previous.unit,source:previous.source||'',date:previous.date||'',changedAt:new Date().toISOString()}].slice(-30);
+      }
+    }
+    const items=editing?s.items.map(x=>x.id===editing?item:x):[...(s.items||[]),item];
     if(save({...all,[selected]:{...s,items}})){resetForm();msg('ردیف ذخیره شد.');render();}
   };
   $('checkExport').onclick=()=>{if(!selected)return; const p=projects.find(x=>x.id===selected), payload={version:1,project:p,checklist:state(),exportedAt:new Date().toISOString()};const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='yasbuildos-checklist.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
@@ -157,7 +170,8 @@
       const num=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1e15;
       const str=(s,max)=>typeof s==='string'&&s.length<=max;
       const valid=i=>i&&typeof i==='object'&&str(i.id,100)&&i.id.length>0&&str(i.name,100)&&i.name.trim()&&str(i.stage,100)&&i.stage.trim()&&num(i.quantity)&&str(i.unit,30)&&i.unit.trim()&&(i.unitPrice===null||num(i.unitPrice))&&num(i.extra)&&num(i.paid)&&['برآورد','متعهدشده','پرداخت‌شده'].includes(i.status)&&str(i.source,200)&&str(i.date,10)&&(i.assignee===undefined||str(i.assignee,100))&&(i.due===undefined||str(i.due,10)&&(!i.due||/^\d{4}-\d{2}-\d{2}$/.test(i.due)))&&typeof i.done==='boolean'&&Number.isSafeInteger(Math.round(i.quantity*(i.unitPrice??0)+i.extra));
-      if(backup?.version!==1||!saved||!num(saved.reserve)||!Array.isArray(saved.items)||saved.items.length>10000||!saved.items.every(i=>valid(i)&&(i.priority===undefined||['پایین','معمولی','بالا'].includes(i.priority))&&(i.costType===undefined||costTypes.includes(i.costType)))||new Set(saved.items.map(i=>i.id)).size!==saved.items.length)throw Error('invalid');
+      const validHistory=h=>Array.isArray(h)&&h.length<=30&&h.every(p=>p&&typeof p==='object'&&(p.unitPrice===null||num(p.unitPrice))&&str(p.unit,30)&&p.unit.trim()&&str(p.source,200)&&str(p.date,10)&&str(p.changedAt,40)&&Number.isFinite(Date.parse(p.changedAt)));
+      if(backup?.version!==1||!saved||!num(saved.reserve)||!Array.isArray(saved.items)||saved.items.length>10000||!saved.items.every(i=>valid(i)&&(i.priority===undefined||['پایین','معمولی','بالا'].includes(i.priority))&&(i.costType===undefined||costTypes.includes(i.costType))&&(i.priceHistory===undefined||validHistory(i.priceHistory)))||new Set(saved.items.map(i=>i.id)).size!==saved.items.length)throw Error('invalid');
       if(selected!==projectId){msg('پروژه انتخابی عوض شد؛ دوباره فایل را انتخاب کنید.');return;}
       const current=state(), ids=new Set(current.items.map(i=>i.id)), added=saved.items.filter(i=>!ids.has(i.id));
       if(current.items.length+added.length>10000)throw Error('too many');
