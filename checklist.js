@@ -56,9 +56,10 @@
       if(item.status==='پرداخت‌شده') spent+=item.paid;
       if(item.status==='متعهدشده') committed+=item.paid;
       if(item.done) done++;
-      const group=byStage.get(item.stage)||{estimate:0,missing:0,spent:0,count:0};
+      const group=byStage.get(item.stage)||{estimate:0,missing:0,spent:0,committed:0,count:0};
       group.count++; if(cost===null)group.missing++; else group.estimate+=cost;
       if(item.status==='پرداخت‌شده')group.spent+=item.paid;
+      if(item.status==='متعهدشده')group.committed+=item.paid;
       byStage.set(item.stage,group);
       const costType=item.costType||costTypes[0], typeGroup=byCostType.get(costType)||{estimate:0,missing:0,spent:0,committed:0,count:0};
       typeGroup.count++; if(cost===null)typeGroup.missing++;else typeGroup.estimate+=cost;
@@ -94,7 +95,7 @@
     $('checkVisibleCount').textContent=`نمایش ${number(shown)} از ${number(items.length)} ردیف`;
     const budget=project.budget===null||project.budget===undefined?null:Number(project.budget), reserve=Number(s.reserve)||0;
     const summary=$('checkStages');summary.replaceChildren();
-    for(const [name,group] of byStage){const row=document.createElement('p');row.textContent=`${name}: ${number(group.count)} ردیف · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' بدون قیمت':''} · پرداخت‌شده ${money(group.spent)}${budget>0?' · '+number(group.estimate/budget*100)+'٪ بودجه (برآورد اقلام قیمت‌دار)':''}`;summary.appendChild(row);}
+    for(const [name,group] of byStage){const row=document.createElement('p');row.textContent=`${name}: ${number(group.count)} ردیف · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' بدون قیمت':''} · پرداخت‌شده ${money(group.spent)} · تعهد ${money(group.committed)}${budget>0?' · '+number(group.estimate/budget*100)+'٪ بودجه (برآورد اقلام قیمت‌دار)':''}`;summary.appendChild(row);}
     if(!byStage.size)summary.textContent='هنوز هزینه‌ای برای نمایش ثبت نشده است.';
     const costSummary=$('checkCostSummary');costSummary.replaceChildren();
     for(const [name,group] of byCostType){const row=document.createElement('p');row.textContent=`${name}: ${number(group.count)} ردیف · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' بدون قیمت':''} · پرداخت‌شده ${money(group.spent)} · تعهد ${money(group.committed)}`;costSummary.appendChild(row);}
@@ -160,6 +161,12 @@
       if(item.source||item.date)add(article,'p',`منبع: ${item.source||'ثبت نشده'} | تاریخ قیمت: ${item.date||'ثبت نشده'}`);
     }
     if(!current.items.length)add(report,'p','هنوز ردیفی ثبت نشده است.');
+    add(report,'h2','خلاصه هزینه‌ها به تفکیک مرحله');
+    const stageRows=Array.from($('checkStages').children);if(stageRows.length)for(const row of stageRows)add(report,'p',row.textContent);else add(report,'p',$('checkStages').textContent);
+    add(report,'h2','خلاصه هزینه‌ها به تفکیک نوع');
+    const typeRows=Array.from($('checkCostSummary').children);if(typeRows.length)for(const row of typeRows)add(report,'p',row.textContent);else add(report,'p',$('checkCostSummary').textContent);
+    add(report,'p',$('checkPriceAge').textContent);
+    if($('checkWarning').textContent)add(report,'p',$('checkWarning').textContent);
     window.print();
   };
   $('checkImport').addEventListener('change',async event=>{
