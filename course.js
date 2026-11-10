@@ -15,6 +15,25 @@
   const login=add(actions,'button','ورود یا ثبت‌نام');login.type='button';login.className='btn secondary sm';
   const enroll=add(actions,'button','دریافت دوره رایگان');enroll.type='button';enroll.className='btn sm';
   const video=document.createElement('video');video.controls=true;video.preload='metadata';video.hidden=true;video.style.cssText='width:100%;max-width:800px;margin-top:16px';card.appendChild(video);
+  const lessons=document.createElement('div');lessons.className='project-item';card.appendChild(lessons);
+  add(lessons,'h3','آموزش متنی برای شروع');
+  add(lessons,'p','این راهنمای کوتاه بدون ورود در دسترس است. ویدیوی دوره و دریافت آن همچنان پس از آماده‌سازی و راه‌اندازی حساب فعال می‌شوند.');
+  const chapters=[
+    ['۱. ساخت پروژه','در بخش پروژه‌های من، نام، شهر، نوع پروژه و بودجه را ثبت کنید. بودجه را به تومان بنویسید؛ جداکننده عدد و نمایش خوانای مبلغ در ورود کمک می‌کند. داده‌های محلی در همین مرورگر نگهداری می‌شوند.','projects','رفتن به پروژه‌ها'],
+    ['۲. ساخت چک‌لیست','پروژه را در بخش چک‌لیست انتخاب کنید. می‌توانید الگوی ساختمان، ویلا یا بازسازی را اضافه و سپس فعالیت‌ها، مقدار، واحد و قیمت هر ردیف را متناسب با پروژه ویرایش کنید. الگوها قیمت روز نیستند.','checklist','رفتن به چک‌لیست'],
+    ['۳. برآورد و مانده','مثال فرضی: بودجه ۱۰۰ میلیون تومان، ذخیره ۱۰ میلیون، برآورد ۲۰ میلیون و پرداخت ثبت‌شده ۱۵ میلیون است. مانده برنامه‌ریزی ۷۰ میلیون و مانده پس از پرداخت و ذخیره ۷۵ میلیون تومان است؛ تعهد ثبت‌نشده‌ای در این مثال نداریم. اقلام بدون قیمت در برآورد نیستند.','dashboard','رفتن به داشبورد'],
+    ['۴. ابزار و گزارش','در کتابخانه، ابزار موردنظر را باز کنید، واحد و فرض‌ها را بخوانید و ورودی بدهید. نتایج مقدماتی را پیش از اجرا با متخصص بررسی کنید. برای نگهداری داده‌ها از بخش پروژه‌ها پشتیبان بگیرید و گزارش چک‌لیست یا داشبورد را دریافت کنید.','tools','رفتن به ابزارها']
+  ];
+  for(const [title,description,target,label] of chapters){
+    const details=document.createElement('details');details.className='project-item';lessons.appendChild(details);
+    add(details,'summary',title);add(details,'p',description);
+    const go=add(details,'button',label);go.type='button';go.className='btn secondary sm';go.addEventListener('click',()=>document.querySelector(`[data-tab="${target}"]`).click());
+  }
+  const question=add(lessons,'p','تمرین: اگر بودجه ۱۰۰، ذخیره ۱۰ و پرداخت ۱۵ میلیون تومان باشد و تعهدی وجود نداشته باشد، مانده پس از پرداخت و ذخیره چند میلیون تومان است؟');
+  question.className='notice';
+  const quiz=document.createElement('div');quiz.className='project-actions';lessons.appendChild(quiz);
+  const feedback=add(lessons,'p','');feedback.className='project-message';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
+  for(const value of [70,75,85]){const answer=add(quiz,'button',`${value.toLocaleString('fa-IR')} میلیون تومان`);answer.type='button';answer.className='btn secondary sm';answer.addEventListener('click',()=>{feedback.textContent=value===75?'درست است: ۱۰۰ − ۱۵ − ۱۰ = ۷۵ میلیون تومان.':'دوباره حساب کنید: پرداخت و ذخیره هر دو از بودجه کم می‌شوند.';});}
   let request=0;
   function videoAvailable(){try{const url=new URL(course.videoUrl,location.href);return Boolean(course.videoUrl)&&(url.protocol==='https:'||url.origin===location.origin);}catch(_){return false;}}
   async function render(){
