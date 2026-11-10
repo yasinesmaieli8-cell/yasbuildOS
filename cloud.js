@@ -64,7 +64,11 @@
     el('cloudProjectCancel').hidden = true;
   }
   function renderUser(user) {
-    authRevision++;
+    if (currentUser && user && currentUser.id===user.id) {
+      currentUser=user;el('cloudEmailDisplay').textContent=user.email||'';el('topname').textContent=user.email||'کاربر';
+      return;
+    }
+    if ((currentUser?.id || null) !== (user?.id || null)) authRevision++;
     currentUser = user;
     requestNumber++;
     el('cloudSignedOut').hidden = Boolean(user);
