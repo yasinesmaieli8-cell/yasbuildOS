@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "YasBuildOS | مدیریت ساخت و پروژه",
+  "short_name": "YasBuildOS",
+  "description": "ابزارهای مقدماتی، چک‌لیست و مدیریت بودجه پروژه ساخت",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#171c31",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}
