@@ -6,7 +6,7 @@ function element(){return {children:[],value:'',textContent:'',hidden:false,sele
 const els={},el=id=>els[id] ||=element(),nav=element();
 const base={stage:'پی',quantity:1,unit:'مورد',unitPrice:null,extra:0,paid:0,status:'برآورد',source:'',date:'',done:false};
 const store={'yasbuildos.projects.v1':JSON.stringify([{id:'p',name:'پروژه',budget:100}]),'yasbuildos.checklist.v1':JSON.stringify({p:{reserve:0,items:[{...base,id:'a',name:'خاک‌برداری'},{...base,id:'b',name:'اجرای پی'}]}})};
-const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}};
+let failRead=false;const localStorage={getItem:k=>{if(failRead)throw Error('temporary error');return store[k]??null},setItem:(k,v)=>{store[k]=v}};
 const document={getElementById:el,createElement:element,querySelector:()=>nav};let blob,approve=true;
 const URL={createObjectURL(b){blob=b;return 'blob:test'},revokeObjectURL(){}};
 const window={addEventListener(){},print(){}};
@@ -33,4 +33,9 @@ el('checkReload').handlers.click();el('checkUndoDelete').handlers.click();assert
 actions('خاک‌برداری')[2].handlers.click();
 actions('اجرای پی')[1].handlers.click();el('checkForm').handlers.submit({preventDefault(){}});assert.ok(el('checkMessage').textContent.includes('پیش‌نیاز یافت نشد'));assert.equal(saved()[0].dependencyId,'a');
 el('checkDepends').value='';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(saved()[0].dependencyId,'');
+const current=JSON.parse(store['yasbuildos.checklist.v1']);current.p.items[0].dependencyId='foreign';store['yasbuildos.checklist.v1']=JSON.stringify(current);el('checkReload').handlers.click();
+const cyclic={version:1,checklist:{reserve:0,items:[{...base,id:'foreign',name:'وارداتی',dependencyId:current.p.items[0].id}]}};
+const fileInput=el('checkImport');fileInput.files=[{size:200,text:async()=>JSON.stringify(cyclic)}];await fileInput.handlers.change({currentTarget:fileInput});assert.equal(saved().length,1);assert.ok(el('checkMessage').textContent.includes('دوری'));
+const beforeFailure=store['yasbuildos.checklist.v1'];failRead=true;el('checkReload').handlers.click();failRead=false;actions('اجرای پی')[0].handlers.click();assert.equal(store['yasbuildos.checklist.v1'],beforeFailure);assert.ok(el('checkMessage').textContent.includes('دسترسی'));
+el('checkReload').handlers.click();actions('اجرای پی')[0].handlers.click();assert.notEqual(store['yasbuildos.checklist.v1'],beforeFailure);
 console.log('PASS checklist prerequisites, cycles, warnings, deletion and reports');

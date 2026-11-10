@@ -14,6 +14,11 @@
   const validChecks=checks=>checks&&typeof checks==='object'&&!Array.isArray(checks)&&Object.keys(checks).length<=10000&&Object.entries(checks).every(([id,c])=>id.length>0&&id.length<=100&&c&&typeof c==='object'&&!Array.isArray(c)&&num(c.reserve)&&(c.stageBudgets===undefined||validStageBudgets(c.stageBudgets))&&Array.isArray(c.items)&&c.items.length<=10000&&c.items.every(i=>validItem(i)&&(i.dependencyId===undefined||str(i.dependencyId,100))&&(i.purchased==null||num(i.purchased)&&i.purchased<=i.quantity)&&(i.notes===undefined||str(i.notes,2000)))&&new Set(c.items.map(i=>i.id)).size===c.items.length);
   const validProjects=projects=>Array.isArray(projects)&&projects.length<=10000&&projects.every(validProject)&&new Set(projects.map(p=>p.id)).size===projects.length;
   const validTrash=entries=>Array.isArray(entries)&&entries.length<=10000&&entries.every(e=>e&&typeof e==='object'&&validProject(e.project)&&str(e.deletedAt,40)&&Number.isFinite(Date.parse(e.deletedAt)))&&new Set(entries.map(e=>e.project.id)).size===entries.length;
+  function hasDependencyCycle(items){
+    const links=new Map(items.map(item=>[item.id,item.dependencyId||''])),done=new Set();
+    for(const item of items){let id=item.id;const path=new Set();while(id&&links.has(id)&&!done.has(id)){if(path.has(id))return true;path.add(id);id=links.get(id);}for(const visited of path)done.add(visited);}
+    return false;
+  }
   function read(){
     const rawProjects=localStorage.getItem(projectsKey),rawChecks=localStorage.getItem(checksKey),rawTrash=localStorage.getItem(trashKey);
     const projects=rawProjects===null?[]:JSON.parse(rawProjects),checks=rawChecks===null?{}:JSON.parse(rawChecks),trash=rawTrash===null?[]:JSON.parse(rawTrash);
@@ -37,6 +42,7 @@
       if(file.size>maxSize)throw Error('too large');
       const backup=JSON.parse(await file.text());
       if(!backup||backup.format!=='yasbuildos-workspace'||![1,2].includes(backup.version)||!validProjects(backup.projects)||!validChecks(backup.checklists))throw Error('invalid');
+      if(Object.values(backup.checklists).some(check=>hasDependencyCycle(check.items))){say('بازیابی انجام نشد؛ وابستگی فعالیت‌های داخل فایل دوری است. داده‌های فعلی تغییر نکردند.');return;}
       const deleted=backup.version===1?[]:backup.deletedProjects;
       if(!validTrash(deleted))throw Error('invalid deleted projects');
       const importedIds=new Set([...backup.projects.map(p=>p.id),...deleted.map(e=>e.project.id)]);

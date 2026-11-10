@@ -13,18 +13,24 @@
       if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw Error('invalid');
       const list = JSON.parse(localStorage.getItem(projectKey) || '[]');
       if (!Array.isArray(list)) throw Error('invalid');
-      all = saved; lastRaw = raw;
+      all = saved; lastRaw = raw; healthy = true;
       projects = list.filter(p => p && typeof p.id === 'string' && typeof p.name === 'string');
     } catch (_) { healthy = false; msg('داده‌ها خوانده نشدند؛ برای جلوگیری از بازنویسی، ثبت اطلاعات غیرفعال است.'); }
   }
   function save(next) {
     try {
+      if(!healthy){msg('داده‌ها خوانده نشدند؛ ابتدا مشکل دسترسی را برطرف و فهرست را به‌روزرسانی کنید.');return false;}
       if(localStorage.getItem(key)!==lastRaw){msg('چک‌لیست در زبانه دیگری تغییر کرده است. برای جلوگیری از بازنویسی، ابتدا روی «به‌روزرسانی پروژه‌ها» بزنید و تغییرات را بررسی کنید.');return false;}
       const raw=JSON.stringify(next);localStorage.setItem(key,raw);lastRaw=raw;all=next;return true;
     }
     catch (_) { msg('ذخیره انجام نشد؛ فضای ذخیره‌سازی مرورگر را بررسی کنید.'); return false; }
   }
   const state = () => all[selected] || {reserve:0, items:[]};
+  function hasDependencyCycle(items){
+    const links=new Map(items.map(item=>[item.id,item.dependencyId||''])),done=new Set();
+    for(const item of items){let id=item.id;const path=new Set();while(id&&links.has(id)&&!done.has(id)){if(path.has(id))return true;path.add(id);id=links.get(id);}for(const visited of path)done.add(visited);}
+    return false;
+  }
   const validStageBudgets = budgets => Array.isArray(budgets) && budgets.length <= 10000 && budgets.every(b => b && typeof b.stage === 'string' && b.stage.trim() && b.stage.length <= 100 && typeof b.amount === 'number' && Number.isFinite(b.amount) && b.amount >= 0 && b.amount <= 1e15) && new Set(budgets.map(b => b.stage)).size === budgets.length && Number.isSafeInteger(Math.round(budgets.reduce((sum, b) => sum + b.amount, 0)));
   function showUndo() {
     const button = $('checkUndoDelete');
@@ -200,6 +206,7 @@
     if(current.items.some(item=>item.id===deletedItem.item.id)){msg('ردیفی با همین شناسه وجود دارد؛ بازگردانی انجام نشد.');return;}
     if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}
     const items=[...current.items];items.splice(Math.min(deletedItem.index,items.length),0,deletedItem.item);
+    if(hasDependencyCycle(items)){msg('بازگردانی باعث وابستگی دوری می‌شود؛ ابتدا پیش‌نیازهای ردیف‌های موجود را اصلاح کنید.');return;}
     if(save({...all,[selected]:{...current,items}})){deletedItem=null;render();msg('ردیف حذف‌شده با اطلاعات و وابستگی‌های قبلی بازگردانده شد.');}
   };
   $('checkForm').onsubmit=e=>{
@@ -278,6 +285,7 @@
       if(selected!==projectId){msg('پروژه انتخابی عوض شد؛ دوباره فایل را انتخاب کنید.');return;}
       const current=state(), ids=new Set(current.items.map(i=>i.id)), added=saved.items.filter(i=>!ids.has(i.id));
       if(current.items.length+added.length>10000)throw Error('too many');
+      if(hasDependencyCycle([...current.items,...added])){msg('بازیابی انجام نشد؛ وابستگی‌های چک‌لیست به شکل دوری به یکدیگر متصل می‌شوند.');return;}
       if(!confirm(`${added.length.toLocaleString('fa-IR')} ردیف تازه به پروژه انتخابی اضافه شود؟ ردیف‌های تکراری، ذخیره احتیاطی و سقف مراحل فعلی تغییر نمی‌کنند.`))return;
       if(save({...all,[projectId]:{...current,items:[...current.items,...added]}})){resetForm();render();msg(`${added.length.toLocaleString('fa-IR')} ردیف بازیابی شد؛ ردیف‌های تکراری، ذخیره احتیاطی و سقف مراحل فعلی تغییر نکردند.`);}
     } catch (_) {msg('فایل چک‌لیست معتبر نیست یا بیش از ۵ مگابایت است؛ اطلاعات قبلی تغییر نکرد.');}
