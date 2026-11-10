@@ -1,0 +1,12 @@
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const html=await readFile('index.html','utf8'),start=html.indexOf('const basicTools='),end=html.indexOf('function openBasic',start);
+assert.ok(start>=0&&end>start);const context=vm.createContext({});vm.runInContext(html.slice(start,end),context);
+const tools=vm.runInContext('basicTools',context), values=(tool,inputs)=>Object.fromEntries(tool.calc(inputs));
+const rebar=tools['محاسبه وزن و تعداد میلگرد'],r=values(rebar,[16,5,10,12]);
+assert.ok(rebar.validate([16,5,10,12]));assert.equal(r['تعداد قطعه قابل برش از هر شاخه (عدد)'],2);assert.equal(r['تعداد شاخه موردنیاز (عدد)'],5);assert.equal(r['طول باقی‌مانده از شاخه‌ها (متر)'],10);assert.ok(Math.abs(r['وزن اسمی هر متر (کیلوگرم بر متر)']-1.578336)<0.00001);
+assert.equal(rebar.validate([16,13,10,12]),false);assert.equal(rebar.validate([16,5,10.5,12]),false);assert.equal(rebar.validate([16,5,Number.MAX_SAFE_INTEGER+1,12]),false);assert.equal(rebar.validate([16,0.001,2,1000.001]),false);
+const wall=tools['برآورد دیوار آجری و بلوکی'],w=values(wall,[8,3,2,40,20,5]);assert.equal(w['سطح خالص دیوار (مترمربع)'],22);assert.equal(w['تعداد تقریبی واحد (عدد)'],289);assert.equal(wall.validate([8,3,24,40,20,5]),false);
+const tile=tools['مقدار کاشی و سرامیک'],t=values(tile,[20,60,60,10]);assert.equal(t['تعداد تقریبی کاشی (عدد)'],62);assert.ok(Math.abs(t['مساحت با پرت (مترمربع)']-22)<1e-10);
+console.log('PASS documented rebar cutting, wall and tile quantity examples');
