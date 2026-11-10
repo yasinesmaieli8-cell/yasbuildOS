@@ -192,6 +192,10 @@
       add(article,'p',`${item.status}${item.status==='برآورد'?'':': '+money(item.paid)} | ${item.done?'انجام‌شده':'انجام‌نشده'} | نوع هزینه: ${item.costType||costTypes[0]} | اولویت: ${item.priority||'معمولی'}${item.assignee?' | مسئول: '+item.assignee:''}${item.due?' | موعد: '+item.due:''}`);
       if(item.source||item.date)add(article,'p',`منبع: ${item.source||'ثبت نشده'} | تاریخ قیمت: ${item.date||'ثبت نشده'}`);
       if(item.notes)add(article,'p','توضیحات: '+item.notes);
+      if(Array.isArray(item.offers)&&item.offers.length){
+        add(article,'p','قیمت‌های دستی فروشندگان؛ هزینه حمل، مالیات و شرایط فروش جداگانه بررسی شود:');
+        for(const offer of item.offers)add(article,'p',[offer.source,money(offer.price)+' برای '+offer.unit,offer.date?'تاریخ: '+offer.date:'بدون تاریخ',offer.note?'شرایط: '+offer.note:'',offer.unit!==item.unit?'واحد متفاوت با ردیف':''].filter(Boolean).join(' | '));
+      }
     }
     if(!current.items.length)add(report,'p','هنوز ردیفی ثبت نشده است.');
     add(report,'h2','خلاصه هزینه‌ها به تفکیک مرحله');
@@ -244,6 +248,14 @@
     for(const item of materialCandidates()){const remaining=item.purchased==null?null:item.quantity-item.purchased;rows.push([item.name,item.stage,item.quantity,item.purchased??'',remaining??'',item.unit,item.unitPrice,remaining===null||item.unitPrice===null?'':remaining*item.unitPrice,item.status,item.source,item.date,item.assignee||'',item.due||'']);}
     const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-open-materials.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('فهرست مصالح فعالیت‌های باز دانلود شد.');
+  };
+  $('checkOffersCsv').onclick=()=>{
+    if(!selected)return;
+    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const rows=[['فعالیت','مرحله','واحد ردیف','فروشنده یا منبع','قیمت واحد تومان','واحد قیمت','تاریخ قیمت','شهر، برند یا شرایط فروش','وضعیت واحد']];
+    for(const item of state().items)for(const offer of item.offers||[])rows.push([item.name,item.stage,item.unit,offer.source,offer.price,offer.unit,offer.date,offer.note||'',offer.unit===item.unit?'همسان':'متفاوت']);
+    const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-supplier-quotes.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('فهرست قیمت‌های دستی فروشندگان دانلود شد.');
   };
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
   window.addEventListener('storage',event=>{if(event.key===key||event.key===null)msg('اطلاعات چک‌لیست در زبانه دیگری تغییر کرد. پیش از ادامه، فهرست را به‌روزرسانی کنید.');});
