@@ -11,6 +11,7 @@
   let currentUser = null;
   let editingId = null;
   let requestNumber = 0;
+  let authPending = false;
   window.yasCloud = {
     async projects() {
       if (!currentUser) throw new Error('login');
@@ -64,10 +65,17 @@
     if (user) loadProjects();
   }
   async function authAction(action) {
+    if (authPending) return;
     const email = field('cloudEmail');
     const password = el('cloudPassword').value;
     if (!email || !el('cloudEmail').validity.valid) { message('یک ایمیل معتبر وارد کنید.'); return; }
-    if (action !== 'reset' && password.length < 8) { message('گذرواژه باید دست‌کم ۸ نویسه باشد.'); return; }
+    if (action === 'login' && !password) { message('گذرواژه را وارد کنید.'); return; }
+    if (action === 'signup' && password.length < 8) { message('گذرواژه باید دست‌کم ۸ نویسه باشد.'); return; }
+    if (action === 'signup') {
+      if (el('cloudConfirmField').hidden) { el('cloudConfirmField').hidden = false; el('cloudPasswordConfirm').value = ''; message('برای ثبت‌نام، گذرواژه را دوباره وارد و ثبت‌نام را انتخاب کنید.'); el('cloudPasswordConfirm').focus(); return; }
+      if (el('cloudPasswordConfirm').value !== password) { message('تکرار گذرواژه با گذرواژه یکسان نیست.'); return; }
+    } else { el('cloudConfirmField').hidden = true; el('cloudPasswordConfirm').value = ''; }
+    authPending = true;
     el('cloudActions').disabled = true;
     message('در حال ارتباط با سرویس…');
     try {
@@ -77,13 +85,20 @@
       else result = await client.auth.resetPasswordForEmail(email, { redirectTo: redirect });
       if (result.error) { message(showError(result.error, action === 'login' ? 'ایمیل یا گذرواژه معتبر نیست، یا ایمیل هنوز تأیید نشده است.' : 'درخواست انجام نشد؛ ممکن است ارسال ایمیل برای این نشانی فعال نباشد.')); return; }
       el('cloudPassword').value = '';
+      el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true;
       if (action === 'signup') message(result.data.session ? 'حساب ساخته شد.' : 'اگر ثبت‌نام پذیرفته شده باشد، پیام تأیید را در ایمیلت بررسی کن.');
       else if (action === 'reset') message('اگر این نشانی قابل بازیابی باشد، دستورالعمل به ایمیل ارسال می‌شود.');
       else message('وارد حساب شدی.');
     } catch (_) { message('ارتباط با سرویس برقرار نشد.'); }
-    finally { el('cloudActions').disabled = false; }
+    finally { authPending = false; el('cloudActions').disabled = false; }
   }
   for (const [id, action] of [['cloudLogin','login'], ['cloudSignup','signup'], ['cloudReset','reset']]) el(id).addEventListener('click', () => authAction(action));
+  el('cloudPasswordToggle').addEventListener('click', () => {
+    const visible=el('cloudPassword').type==='password';
+    el('cloudPassword').type=visible?'text':'password';el('cloudPasswordConfirm').type=visible?'text':'password';
+    el('cloudPasswordToggle').textContent=visible?'پنهان کردن گذرواژه':'نمایش گذرواژه';
+    el('cloudPasswordToggle').setAttribute('aria-pressed',String(visible));
+  });
   el('cloudLogout').addEventListener('click', async () => {
     const { error } = await client.auth.signOut();
     if (error) message('خروج انجام نشد؛ دوباره تلاش کن.'); else message('از حساب خارج شدی.');
@@ -283,7 +298,7 @@
   client.auth.onAuthStateChange((event, session) => {
     queueMicrotask(() => {
       renderUser(session?.user || null);
-      if (event === 'SIGNED_OUT') { el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; }
+      if (event === 'SIGNED_OUT') { el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; el('cloudPassword').value = ''; el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true; }
       if (event === 'PASSWORD_RECOVERY') { document.querySelector('[data-tab="auth"]').click(); el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد کنید.'); }
     });
   });
