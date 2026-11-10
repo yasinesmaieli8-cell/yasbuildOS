@@ -105,7 +105,7 @@
         const row=document.createElement('div'),desc=document.createElement('p'),open=document.createElement('button');
         desc.textContent=[risk.project,risk.stage,`سقف: ${fmt(risk.limit)} تومان`,`برآورد: ${fmt(risk.estimate)} تومان`,`پرداخت و تعهد: ${fmt(risk.actual)} تومان`,risk.missing?`${fmt(risk.missing)} ردیف بدون قیمت`: ''].filter(Boolean).join(' · ');
         open.type='button';open.className='btn secondary sm';open.textContent='بررسی بودجه پروژه';open.setAttribute('aria-label','بررسی بودجه پروژه '+risk.project+'، مرحله '+risk.stage);
-        open.addEventListener('click',()=>{if(!window.yasbuildosOpenChecklist||!window.yasbuildosOpenChecklist(risk.projectId))$('dashSummary').textContent='باز کردن پروژه ممکن نشد؛ فهرست پروژه‌ها را بررسی کنید.';});
+        open.addEventListener('click',()=>{if(!window.yasbuildosOpenChecklist||!window.yasbuildosOpenChecklist(risk.projectId,'all',risk.stage))$('dashSummary').textContent='باز کردن پروژه ممکن نشد؛ فهرست پروژه‌ها را بررسی کنید.';});
         row.append(desc,open);riskList.appendChild(row);
       }
       if(!risks.length)riskList.textContent='مرحله‌ای با عبور ثبت‌شده از سقف وجود ندارد. ردیف‌های بدون قیمت در برآورد کامل لحاظ نمی‌شوند.';

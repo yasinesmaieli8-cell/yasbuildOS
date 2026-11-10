@@ -1,6 +1,7 @@
 // پشتیبان پروژه‌های محلی؛ فایل پشتیبان محرمانه است و رمزگذاری نشده است.
 (() => {
   const key = 'yasbuildos.projects.v1';
+  const trashKey = 'yasbuildos.projects.trash.v1';
   const input = document.getElementById('projectBackupFile');
   const message = document.getElementById('projectBackupMessage');
   const say = text => { message.textContent = text; };
@@ -44,13 +45,16 @@
       if (file.size > 5 * 1024 * 1024) throw new Error('too large');
       const backup = JSON.parse(await file.text());
       if (!backup || backup.format !== 'yasbuildos-projects' || backup.version !== 1 || !validate(backup.projects)) throw new Error('invalid backup');
-      const current = read();
-      const ids = new Set(current.map(p => p.id));
+      const currentRaw = localStorage.getItem(key), current = read(), trashRaw = localStorage.getItem(trashKey);
+      const trash = trashRaw === null ? [] : JSON.parse(trashRaw);
+      if (!Array.isArray(trash) || trash.some(e => !e || !e.project || typeof e.project.id !== 'string' || typeof e.project.name !== 'string') || new Set(trash.map(e => e.project.id)).size !== trash.length) throw new Error('invalid trash');
+      const ids = new Set([...current.map(p => p.id), ...trash.map(e => e.project.id)]);
       const added = backup.projects.filter(p => !ids.has(p.id));
       if (current.length + added.length > 10000) throw new Error('too many');
+      if (localStorage.getItem(key) !== currentRaw || localStorage.getItem(trashKey) !== trashRaw) { say('اطلاعات پروژه‌ها در زبانه دیگری تغییر کرده است؛ دوباره تلاش کنید.'); return; }
       localStorage.setItem(key, JSON.stringify([...current, ...added]));
       window.dispatchEvent(new Event('yasbuildos-projects-updated'));
-      say(`${added.length.toLocaleString('fa-IR')} پروژه افزوده شد؛ پروژه‌های دارای شناسه تکراری تغییر نکردند.`);
+      say(`${added.length.toLocaleString('fa-IR')} پروژه افزوده شد؛ شناسه‌های موجود در پروژه‌ها یا فهرست حذف‌شده‌ها تغییر نکردند.`);
     } catch (_) { say('فایل معتبر نیست، بیش از حد بزرگ است یا ذخیره‌سازی در دسترس نیست؛ داده‌های قبلی تغییر نکردند.'); }
     finally { input.value = ''; }
   });

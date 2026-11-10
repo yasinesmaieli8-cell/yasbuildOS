@@ -323,15 +323,31 @@
     const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-supplier-quotes.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('فهرست قیمت‌های دستی فروشندگان دانلود شد.');
   };
+  $('checkStageCsv').onclick=()=>{
+    if(!selected)return;
+    const current=state(),allocations=current.stageBudgets===undefined?[]:current.stageBudgets;
+    if(!validStageBudgets(allocations)){msg('سقف مراحل معتبر نیست؛ گزارش ساخته نشد.');return;}
+    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const rows=[['مرحله','سقف تومان','برآورد اقلام قیمت‌دار تومان','تعداد اقلام بدون قیمت','پرداخت‌شده تومان','تعهد تومان','مانده سقف پس از پرداخت و تعهد تومان','وضعیت سقف']];
+    const groups=new Map();
+    for(const item of current.items){const group=groups.get(item.stage)||{estimate:0,missing:0,spent:0,committed:0};if(item.unitPrice===null)group.missing++;else group.estimate+=item.quantity*item.unitPrice+item.extra;if(item.status==='پرداخت‌شده')group.spent+=item.paid;if(item.status==='متعهدشده')group.committed+=item.paid;groups.set(item.stage,group);}
+    for(const allocation of allocations){const group=groups.get(allocation.stage)||{estimate:0,missing:0,spent:0,committed:0};group.limit=allocation.amount;groups.set(allocation.stage,group);}
+    for(const [stage,{estimate,missing,spent,committed,limit}] of groups){
+      rows.push([stage,limit??'',estimate,missing,spent,committed,limit===undefined?'':limit-spent-committed,limit===undefined?'سقف ثبت نشده':estimate>limit||spent+committed>limit?'عبور از سقف':'در محدوده سقف']);
+    }
+    const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-stage-budgets.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('گزارش بودجه مراحل ساخته شد؛ اقلام بدون قیمت در برآورد کامل لحاظ نشده‌اند.');
+  };
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
   window.addEventListener('storage',event=>{if(event.key===key||event.key===null)msg('اطلاعات چک‌لیست در زبانه دیگری تغییر کرد. پیش از ادامه، فهرست را به‌روزرسانی کنید.');});
   document.querySelector('[data-tab="checklist"]').addEventListener('click',refreshProjects);
-  window.yasbuildosOpenChecklist=(id,filter='all')=>{
+  window.yasbuildosOpenChecklist=(id,filter='all',stage='')=>{
     refreshProjects();
     if(!healthy||!projects.some(project=>project.id===id))return false;
     document.querySelector('[data-tab="checklist"]').click();
     $('checkSearch').value='';$('checkFilter').value=filter==='blocked'?'blocked':'all';$('checkCostFilter').value='';
     $('checkProject').value=id;selectProject();
+    if(stage&&state().items.some(item=>item.stage===stage)){$('checkStageFilter').value=stage;render();}
     return true;
   };
   refreshProjects();

@@ -26,6 +26,8 @@ assert.ok(el('checkStageBudgetTotal').textContent.includes('۷۶٬۰۰۰٬۰۰۰
 window.budgetInputs.checkStageBudget.set(95000000);el('checkStageBudgetSave').handlers.click();assert.ok(el('checkStageBudgetTotal').textContent.includes('هشدار'));
 el('checkStageBudgetRemove').handlers.click();assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.stageBudgets.length,0);
 el('checkStageBudgetStage').value='پی';window.budgetInputs.checkStageBudget.set(25000000);el('checkStageBudgetSave').handlers.click();
+el('checkStageCsv').handlers.click();const stageCsv=await exported.text();assert.ok(stageCsv.includes('پی'));assert.ok(stageCsv.includes('25000000'));assert.ok(stageCsv.includes('20000000'));assert.ok(stageCsv.includes('15000000'));
+assert.equal(window.yasbuildosOpenChecklist('p1','all','پی'),true);assert.equal(el('checkStageFilter').value,'پی');el('checkStageFilter').value='';el('checkStageFilter').handlers.change();
 el('checkReserve').value='12000000';el('checkSearch').value='سیمان';el('checkSearch').oninput();assert.equal(el('checkReserve').value,'12000000');el('checkReserve').value='10000000';el('checkSearch').value='';el('checkSearch').oninput();
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].costType,'مصالح');assert.ok(el('checkCostSummary').children[0].textContent.includes('۱۵٬۰۰۰٬۰۰۰ تومان'));
 assert.ok(el('checkStages').children[0].textContent.includes('تعهد ۰ تومان'));
