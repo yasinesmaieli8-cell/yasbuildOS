@@ -118,7 +118,8 @@
     $('checkScenarioResult').textContent=Number.isFinite(change)&&change>=-100&&change<=1000?`برآورد سناریو: ${money(estimate+pricedBase*change/100)}${missing?' + '+number(missing)+' قلم بدون قیمت':''}`:'درصد تغییر باید بین ۱۰۰- تا ۱۰۰۰ باشد.';
     $('checkWarning').textContent=budget!==null && (spent+committed+reserve>budget || estimate+reserve>budget)?'هشدار: مجموع برآورد یا هزینه‌ها با ذخیره احتیاطی از بودجه بیشتر است.':'';
   }
-  $('checkProject').onchange=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';resetForm();render();};
+  const selectProject=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';resetForm();render();};
+  $('checkProject').onchange=selectProject;
   $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkCostFilter').onchange=render; $('checkScenario').oninput=render;
   $('checkReload').onclick=refreshProjects;
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=window.budgetInputs.checkReserve.get()??0;if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
@@ -205,5 +206,13 @@
   };
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
   document.querySelector('[data-tab="checklist"]').addEventListener('click',refreshProjects);
+  window.yasbuildosOpenChecklist=id=>{
+    refreshProjects();
+    if(!healthy||!projects.some(project=>project.id===id))return false;
+    document.querySelector('[data-tab="checklist"]').click();
+    $('checkSearch').value='';$('checkFilter').value='all';$('checkCostFilter').value='';
+    $('checkProject').value=id;selectProject();
+    return true;
+  };
   refreshProjects();
 })();

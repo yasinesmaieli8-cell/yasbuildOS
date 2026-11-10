@@ -63,6 +63,12 @@
       addText(card, 'p', 'مساحت: ' + (project.area === null ? 'ثبت نشده' : number(project.area) + ' مترمربع') + ' | بودجه: ' + (project.budget === null ? 'ثبت نشده' : number(project.budget) + ' تومان'));
       const actions = document.createElement('div');
       actions.className = 'project-actions';
+      const checklist = addText(actions, 'button', 'چک‌لیست و بودجه', 'btn secondary sm');
+      checklist.type = 'button';
+      checklist.setAttribute('aria-label', 'چک‌لیست و بودجه پروژه ' + project.name);
+      checklist.addEventListener('click', () => {
+        if (!window.yasbuildosOpenChecklist || !window.yasbuildosOpenChecklist(project.id)) setMessage('باز کردن چک‌لیست ممکن نشد؛ فهرست پروژه‌ها را به‌روزرسانی کنید.', true);
+      });
       const edit = addText(actions, 'button', 'ویرایش', 'btn secondary sm');
       edit.type = 'button';
       edit.setAttribute('aria-label', 'ویرایش پروژه ' + project.name);

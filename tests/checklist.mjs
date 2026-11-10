@@ -2,7 +2,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const source=await readFile('checklist.js','utf8');
-function element(){return {children:[],value:'',textContent:'',hidden:false,selectionStart:0,form:null,handlers:{},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},replaceChildren(){this.children=[]},set onclick(f){this.handlers.click=f},set onchange(f){this.handlers.change=f},set onsubmit(f){this.handlers.submit=f},addEventListener(k,f){this.handlers[k]=f},setCustomValidity(){},setSelectionRange(){},reset(){},focus(){},click(){},reportValidity(){return true}}}
+function element(){return {children:[],value:'',textContent:'',hidden:false,selectionStart:0,form:null,handlers:{},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},replaceChildren(){this.children=[]},set onclick(f){this.handlers.click=f},set onchange(f){this.handlers.change=f},set onsubmit(f){this.handlers.submit=f},addEventListener(k,f){this.handlers[k]=f},setCustomValidity(){},setSelectionRange(){},reset(){},focus(){},click(){this.handlers.click?.()},reportValidity(){return true}}}
 const els={}; const el=id=>els[id] ||= element(); const nav=element(); const project={id:'p1',name:'پروژه',budget:100000000};
 const store={'yasbuildos.projects.v1':JSON.stringify([project])};
 const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}};
@@ -61,4 +61,5 @@ let changed=JSON.parse(store['yasbuildos.checklist.v1']).p1.items.find(item=>ite
 assert.ok(el('checkItems').children.some(row=>row.children.some(child=>child.children?.some(node=>node.textContent?.includes('۵۰۰ تومان')))));
 const historyBackup=structuredClone(imported);historyBackup.checklist.items=[{...changed,id:'history-copy'}];fileInput.files=[{size:100,text:async()=>JSON.stringify(historyBackup)}];await fileInput.handlers.change({currentTarget:fileInput});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.at(-1).priceHistory[0].unitPrice,500);
 historyBackup.checklist.items[0].id='invalid-history';historyBackup.checklist.items[0].priceHistory[0].unitPrice=-1;fileInput.files=[{size:100,text:async()=>JSON.stringify(historyBackup)}];await fileInput.handlers.change({currentTarget:fileInput});assert.ok(!JSON.parse(store['yasbuildos.checklist.v1']).p1.items.some(item=>item.id==='invalid-history'));
+el('checkSearch').value='چیزی دیگر';el('checkFilter').value='missing';el('checkCostFilter').value='مصالح';assert.equal(window.yasbuildosOpenChecklist('p1'),true);assert.equal(el('checkProject').value,'p1');assert.equal(el('checkSearch').value,'');assert.equal(el('checkFilter').value,'all');assert.equal(el('checkCostFilter').value,'');assert.equal(window.yasbuildosOpenChecklist('unknown'),false);
 console.log('PASS manual price, estimate, paid amount, reserve, balance, persistence and completion');

@@ -21,7 +21,9 @@
         const title=document.createElement('h3');title.textContent=p.name;
         const desc=document.createElement('p');const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[];
         desc.textContent=[p.city||'شهر ثبت نشده',p.status||'وضعیت ثبت نشده',fmt(items.length)+' ردیف چک‌لیست'].join(' · ');
-        card.append(title,desc);list.appendChild(card);
+        const open=document.createElement('button');open.type='button';open.className='btn secondary sm';open.textContent='چک‌لیست و بودجه';open.setAttribute('aria-label','چک‌لیست و بودجه پروژه '+p.name);
+        open.addEventListener('click',()=>{if(!window.yasbuildosOpenChecklist||!window.yasbuildosOpenChecklist(p.id))$('dashSummary').textContent='باز کردن چک‌لیست ممکن نشد؛ فهرست پروژه‌ها را بررسی کنید.';});
+        card.append(title,desc,open);list.appendChild(card);
       }
       if(!projects.length)list.textContent='هنوز پروژه‌ای ثبت نشده است. برای شروع از بخش پروژه‌های من، پروژه بسازید.';
       const deadlines=$('dashDue');deadlines.replaceChildren();
