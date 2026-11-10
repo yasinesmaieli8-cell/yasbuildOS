@@ -13,6 +13,7 @@
   let requestNumber = 0;
   let authPending = false;
   let logoutPending = false;
+  let projectSavePending = false;
   let passwordChangePending = false;
   let authRevision = 0;
   function hidePasswords() {
@@ -317,19 +318,25 @@
   });
   el('cloudProjectForm').addEventListener('submit', async event => {
     event.preventDefault();
-    if (!currentUser || !el('cloudProjectForm').reportValidity()) return;
+    if (projectSavePending || !currentUser || !el('cloudProjectForm').reportValidity()) return;
     const name = field('cloudProjectName');
     if (!name) { projectMessage('نام پروژه را وارد کنید.'); return; }
     const area = el('cloudProjectArea').value, budget = window.budgetInputs.cloudProjectBudget.get();
     if (budget !== null && !Number.isFinite(budget)) { projectMessage('مبلغ بودجه معتبر نیست.'); return; }
     const values = { name, city: field('cloudProjectCity'), project_type: el('cloudProjectType').value, status: el('cloudProjectStatus').value, area: area === '' ? null : Number(area), budget };
-    el('cloudProjectSave').disabled = true;
+    const userId=currentUser.id,revision=authRevision,formFields=['cloudProjectName','cloudProjectCity','cloudProjectType','cloudProjectStatus','cloudProjectArea','cloudProjectBudget'];
+    const snapshot=()=>JSON.stringify([editingId,...formFields.map(id=>el(id).value)]),original=snapshot();
+    projectSavePending=true;el('cloudProjectSave').disabled = true;
     try {
       const result = editingId ? await client.from('yb_projects').update(values).eq('id',editingId).select('id') : await client.from('yb_projects').insert(values).select('id');
-      if (result.error || !result.data || result.data.length !== 1) { projectMessage('ذخیره انجام نشد؛ اطلاعات، دسترسی یا اتصال را بررسی کنید.'); return; }
-      resetProject(); await loadProjects();
-    } catch (_) { projectMessage('ذخیره پروژه انجام نشد.'); }
-    finally { el('cloudProjectSave').disabled = false; }
+      if(revision!==authRevision||currentUser?.id!==userId)return;
+      if (result.error || !result.data || result.data.length !== 1) { projectMessage('ذخیره تأیید نشد؛ اطلاعات، دسترسی و فهرست پروژه‌ها را پیش از تلاش دوباره بررسی کنید.'); return; }
+      const changed=snapshot()!==original;
+      if(!changed)resetProject();
+      await loadProjects();
+      if(changed&&revision===authRevision&&currentUser?.id===userId)projectMessage('پروژه ذخیره شد؛ تغییرات جدید فرم برای بررسی حفظ شدند.');
+    } catch (_) { if(revision===authRevision&&currentUser?.id===userId)projectMessage('ذخیره تأیید نشد؛ پیش از تلاش دوباره فهرست پروژه‌ها را بررسی کنید.'); }
+    finally { projectSavePending=false;el('cloudProjectSave').disabled = false; }
   });
   client.auth.onAuthStateChange((event, session) => {
     queueMicrotask(() => {

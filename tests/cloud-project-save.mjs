@@ -1,0 +1,20 @@
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const elements={};
+function element(){return {value:'',type:'',textContent:'',hidden:false,disabled:false,validity:{valid:true},handlers:{},style:{},addEventListener(name,fn){this.handlers[name]=fn},setAttribute(){},focus(){},click(){},reset(){this.resetCount=(this.resetCount||0)+1},replaceChildren(){},appendChild(){},querySelector(){return element()},reportValidity(){return true}};}
+const el=id=>elements[id] ||= element(),document={getElementById:el,createElement:element,querySelector:()=>element()};
+let authCallback,resolveSave,saveCount=0;
+const client={auth:{onAuthStateChange(fn){authCallback=fn}},from(){const q={mode:'read',select(){if(q.mode==='write')return new Promise(resolve=>{resolveSave=resolve});return q},eq(){return q},insert(){q.mode='write';saveCount++;return q},update(){q.mode='write';saveCount++;return q},order:async()=>({data:[],error:null}),then(resolve){resolve({data:[],error:null})}};return q}};
+const window={supabase:{createClient:()=>client},budgetInputs:{cloudProjectBudget:{get(){return null},set(){}}}};
+vm.runInNewContext(await readFile('cloud.js','utf8'),{document,window,location:{origin:'https://example.com',pathname:'/'},queueMicrotask,confirm:()=>true});
+const user={user:{id:'one',email:'one@example.com'}},second={user:{id:'two',email:'two@example.com'}};
+authCallback('SIGNED_IN',user);await new Promise(resolve=>setImmediate(resolve));el('cloudProjectName').value='پروژه نخست';
+const submit=()=>el('cloudProjectForm').handlers.submit({preventDefault(){}});
+let pending=submit();assert.equal(saveCount,1);await submit();assert.equal(saveCount,1);assert.equal(el('cloudProjectSave').disabled,true);
+authCallback('SIGNED_IN',second);await new Promise(resolve=>setImmediate(resolve));el('cloudProjectName').value='متن کاربر دوم';el('cloudProjectMessage').textContent='پیام حساب دوم';const resets=el('cloudProjectForm').resetCount;
+resolveSave({data:[{id:'p'}],error:null});await pending;assert.equal(el('cloudProjectName').value,'متن کاربر دوم');assert.equal(el('cloudProjectMessage').textContent,'پیام حساب دوم');assert.equal(el('cloudProjectForm').resetCount,resets);
+pending=submit();el('cloudProjectName').value='ویرایش تازه';resolveSave({data:[{id:'p'}],error:null});await pending;assert.equal(el('cloudProjectName').value,'ویرایش تازه');assert.ok(el('cloudProjectMessage').textContent.includes('حفظ شدند'));
+pending=submit();const before=el('cloudProjectForm').resetCount;resolveSave({data:[{id:'p'}],error:null});await pending;assert.equal(el('cloudProjectForm').resetCount,before+1);assert.equal(el('cloudProjectSave').disabled,false);
+pending=submit();resolveSave({data:null,error:{message:'network'}});await pending;assert.ok(el('cloudProjectMessage').textContent.includes('تأیید نشد'));assert.ok(el('cloudProjectMessage').textContent.includes('پیش از تلاش دوباره'));
+console.log('PASS cloud project save rejects stale sessions, protects edits and prevents duplicate submits');
