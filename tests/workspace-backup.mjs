@@ -2,7 +2,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
-const projectKey='yasbuildos.projects.v1',checkKey='yasbuildos.checklist.v1';
+const projectKey='yasbuildos.projects.v1',checkKey='yasbuildos.checklist.v1',trashKey='yasbuildos.projects.trash.v1';
 const project={id:'project-1',name:'ساختمان',city:'تهران',type:'مسکونی',status:'در حال اجرا',area:100,budget:1000000,createdAt:'2026-11-01T00:00:00Z',updatedAt:'2026-11-01T00:00:00Z'};
 const item={id:'item-1',name:'سیمان',stage:'پی',quantity:10,purchased:4,unit:'کیسه',unitPrice:500,extra:0,paid:0,status:'برآورد',source:'فروشنده',date:'2026-11-01',notes:'حمل با کامیون',dependencyId:'predecessor',done:false,costType:'مصالح',offers:[{source:'فروشنده الف',price:450,date:'2026-11-01',unit:'کیسه',note:'تهران'}],priceHistory:[{unitPrice:400,unit:'کیسه',source:'',date:'',changedAt:'2026-11-01T00:00:00Z'}]};
 let store={[projectKey]:JSON.stringify([project]),[checkKey]:JSON.stringify({'project-1':{reserve:100,items:[item],stageBudgets:[{stage:'پی',amount:2000}]}})},failProject=false,blob,onConfirm=null,onCheckWrite=null;
@@ -26,4 +26,12 @@ const badStage=structuredClone(backup);badStage.checklists['project-1'].stageBud
 store={[checkKey]:JSON.stringify({'project-1':{reserve:7,items:[]}})};await importBackup(backup);assert.equal(store[projectKey],JSON.stringify([]));assert.equal(JSON.parse(store[checkKey])['project-1'].reserve,7);
 store={};onConfirm=()=>{store[projectKey]=JSON.stringify([{...project,id:'other'}])};await importBackup(backup);assert.equal(JSON.parse(store[projectKey])[0].id,'other');assert.equal(store[checkKey],undefined);assert.ok(el('workspaceBackupMessage').textContent.includes('زبانه دیگری'));
 store={};onCheckWrite=()=>{store[checkKey]=JSON.stringify({other:{reserve:22,items:[]}})};await importBackup(backup);assert.equal(store[projectKey],undefined);assert.equal(JSON.parse(store[checkKey]).other.reserve,22);assert.ok(el('workspaceBackupMessage').textContent.includes('بازنویسی نکردیم'));
+const deleted={project:{...project,id:'deleted',name:'پروژه حذف‌شده'},deletedAt:'2026-11-10T00:00:00Z'};
+store={[projectKey]:JSON.stringify([project]),[trashKey]:JSON.stringify([deleted]),[checkKey]:JSON.stringify({deleted:{reserve:22,items:[item]}})};
+el('workspaceBackupExport').handlers.click();const withTrash=JSON.parse(await blob.text());assert.equal(withTrash.version,2);assert.equal(withTrash.deletedProjects[0].project.id,'deleted');assert.equal(withTrash.checklists.deleted.items[0].name,'سیمان');
+store={};await importBackup(withTrash);assert.equal(JSON.parse(store[trashKey])[0].project.id,'deleted');assert.equal(JSON.parse(store[checkKey]).deleted.reserve,22);assert.equal(JSON.parse(store[projectKey])[0].id,'project-1');
+const beforeDuplicate=JSON.stringify(store);await importBackup(withTrash);assert.equal(JSON.stringify(store),beforeDuplicate);
+store={};failProject=true;await importBackup(withTrash);assert.equal(store[trashKey],undefined);assert.equal(store[checkKey],undefined);assert.equal(store[projectKey],undefined);
+store={[trashKey]:JSON.stringify([deleted]),[checkKey]:JSON.stringify({deleted:{reserve:45,items:[]}})};const activeCollision=structuredClone(withTrash);activeCollision.projects=[deleted.project];activeCollision.deletedProjects=[];await importBackup(activeCollision);assert.equal(JSON.parse(store[checkKey]).deleted.reserve,45);assert.deepEqual(JSON.parse(store[projectKey]),[]);assert.equal(JSON.parse(store[trashKey])[0].project.id,'deleted');
+const v1=structuredClone(withTrash);v1.version=1;delete v1.deletedProjects;delete v1.checklists.deleted;store={};await importBackup(v1);assert.equal(JSON.parse(store[projectKey])[0].id,'project-1');
 console.log('PASS complete local backup, restore, duplicate protection, invalid data and rollback');

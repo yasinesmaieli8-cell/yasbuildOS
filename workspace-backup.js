@@ -1,7 +1,7 @@
 // پشتیبان محلی پروژه‌ها و چک‌لیست‌ها؛ فایل رمزگذاری نشده است.
 (() => {
   'use strict';
-  const projectsKey='yasbuildos.projects.v1', checksKey='yasbuildos.checklist.v1', maxSize=10*1024*1024;
+  const projectsKey='yasbuildos.projects.v1', checksKey='yasbuildos.checklist.v1', trashKey='yasbuildos.projects.trash.v1', maxSize=10*1024*1024;
   const input=document.getElementById('workspaceBackupFile'), message=document.getElementById('workspaceBackupMessage');
   const say=text=>{message.textContent=text;};
   const str=(v,max)=>typeof v==='string'&&v.length<=max;
@@ -13,21 +13,22 @@
   const validStageBudgets=a=>Array.isArray(a)&&a.length<=10000&&a.every(b=>b&&str(b.stage,100)&&b.stage.trim()&&num(b.amount))&&new Set(a.map(b=>b.stage)).size===a.length&&Number.isSafeInteger(Math.round(a.reduce((sum,b)=>sum+b.amount,0)));
   const validChecks=checks=>checks&&typeof checks==='object'&&!Array.isArray(checks)&&Object.keys(checks).length<=10000&&Object.entries(checks).every(([id,c])=>id.length>0&&id.length<=100&&c&&typeof c==='object'&&!Array.isArray(c)&&num(c.reserve)&&(c.stageBudgets===undefined||validStageBudgets(c.stageBudgets))&&Array.isArray(c.items)&&c.items.length<=10000&&c.items.every(i=>validItem(i)&&(i.dependencyId===undefined||str(i.dependencyId,100))&&(i.purchased==null||num(i.purchased)&&i.purchased<=i.quantity)&&(i.notes===undefined||str(i.notes,2000)))&&new Set(c.items.map(i=>i.id)).size===c.items.length);
   const validProjects=projects=>Array.isArray(projects)&&projects.length<=10000&&projects.every(validProject)&&new Set(projects.map(p=>p.id)).size===projects.length;
+  const validTrash=entries=>Array.isArray(entries)&&entries.length<=10000&&entries.every(e=>e&&typeof e==='object'&&validProject(e.project)&&str(e.deletedAt,40)&&Number.isFinite(Date.parse(e.deletedAt)))&&new Set(entries.map(e=>e.project.id)).size===entries.length;
   function read(){
-    const rawProjects=localStorage.getItem(projectsKey),rawChecks=localStorage.getItem(checksKey);
-    const projects=rawProjects===null?[]:JSON.parse(rawProjects),checks=rawChecks===null?{}:JSON.parse(rawChecks);
-    if(!validProjects(projects)||!validChecks(checks))throw Error('invalid local data');
-    return {projects,checks,rawProjects,rawChecks};
+    const rawProjects=localStorage.getItem(projectsKey),rawChecks=localStorage.getItem(checksKey),rawTrash=localStorage.getItem(trashKey);
+    const projects=rawProjects===null?[]:JSON.parse(rawProjects),checks=rawChecks===null?{}:JSON.parse(rawChecks),trash=rawTrash===null?[]:JSON.parse(rawTrash);
+    if(!validProjects(projects)||!validChecks(checks)||!validTrash(trash))throw Error('invalid local data');
+    return {projects,checks,trash,rawProjects,rawChecks,rawTrash};
   }
   document.getElementById('workspaceBackupExport').addEventListener('click',()=>{
     try{
-      const {projects,checks}=read(),selected=Object.create(null);
-      for(const p of projects)if(Object.hasOwn(checks,p.id))selected[p.id]=checks[p.id];
-      const payload={format:'yasbuildos-workspace',version:1,exportedAt:new Date().toISOString(),projects,checklists:selected};
+      const {projects,checks,trash}=read(),selected=Object.create(null);
+      for(const p of [...projects,...trash.map(e=>e.project)])if(Object.hasOwn(checks,p.id))selected[p.id]=checks[p.id];
+      const payload={format:'yasbuildos-workspace',version:2,exportedAt:new Date().toISOString(),projects,deletedProjects:trash,checklists:selected};
       const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
       if(blob.size>maxSize)throw Error('too large');
       const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='yasbuildos-workspace-'+new Date().toISOString().slice(0,10)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      say('پشتیبان پروژه‌ها و چک‌لیست‌ها آماده شد؛ فایل را در جای امن نگه دارید.');
+      say('پشتیبان پروژه‌ها، فهرست حذف‌شده‌ها و چک‌لیست‌ها آماده شد؛ فایل را در جای امن نگه دارید.');
     }catch(_){say('ساخت پشتیبان ممکن نشد؛ داده‌ها یا فضای ذخیره‌سازی و سقف ۱۰ مگابایت را بررسی کنید.');}
   });
   input.addEventListener('change',async()=>{
@@ -35,29 +36,36 @@
     try{
       if(file.size>maxSize)throw Error('too large');
       const backup=JSON.parse(await file.text());
-      if(!backup||backup.format!=='yasbuildos-workspace'||backup.version!==1||!validProjects(backup.projects)||!validChecks(backup.checklists))throw Error('invalid');
-      const importedIds=new Set(backup.projects.map(p=>p.id));
+      if(!backup||backup.format!=='yasbuildos-workspace'||![1,2].includes(backup.version)||!validProjects(backup.projects)||!validChecks(backup.checklists))throw Error('invalid');
+      const deleted=backup.version===1?[]:backup.deletedProjects;
+      if(!validTrash(deleted))throw Error('invalid deleted projects');
+      const importedIds=new Set([...backup.projects.map(p=>p.id),...deleted.map(e=>e.project.id)]);
       if(Object.keys(backup.checklists).some(id=>!importedIds.has(id)))throw Error('orphan checklist');
-      const current=read(),existing=new Set(current.projects.map(p=>p.id));
+      const current=read(),existing=new Set([...current.projects.map(p=>p.id),...current.trash.map(e=>e.project.id)]);
       const added=backup.projects.filter(p=>!existing.has(p.id)&&!Object.hasOwn(current.checks,p.id));
-      if(current.projects.length+added.length>10000)throw Error('too many');
-      if(!confirm(`${added.length.toLocaleString('fa-IR')} پروژه جدید همراه چک‌لیست مربوطه افزوده شود؟ موارد موجود یا دارای شناسه تکراری تغییر نمی‌کنند.`))return;
+      const addedIds=new Set(added.map(p=>p.id));
+      const addedTrash=deleted.filter(e=>!existing.has(e.project.id)&&!addedIds.has(e.project.id)&&!Object.hasOwn(current.checks,e.project.id));
+      if(current.projects.length+added.length>10000||current.trash.length+addedTrash.length>10000)throw Error('too many');
+      if(!confirm(`${added.length.toLocaleString('fa-IR')} پروژه فعال و ${addedTrash.length.toLocaleString('fa-IR')} پروژه حذف‌شده همراه چک‌لیست مربوطه افزوده شود؟ موارد موجود یا دارای شناسه تکراری تغییر نمی‌کنند.`))return;
       const checks=Object.assign(Object.create(null),current.checks);
-      for(const p of added)if(Object.hasOwn(backup.checklists,p.id))checks[p.id]=backup.checklists[p.id];
+      for(const p of [...added,...addedTrash.map(e=>e.project)])if(Object.hasOwn(backup.checklists,p.id))checks[p.id]=backup.checklists[p.id];
       if(Object.keys(checks).length>10000)throw Error('too many checklists');
-      const nextChecks=JSON.stringify(checks);
-      if(localStorage.getItem(projectsKey)!==current.rawProjects||localStorage.getItem(checksKey)!==current.rawChecks){say('اطلاعات در زبانه دیگری تغییر کرد؛ بازیابی متوقف شد. صفحه را تازه کنید و دوباره تلاش کنید.');return;}
-      let changedChecks=false;
+      const expected=new Map([[projectsKey,current.rawProjects],[checksKey,current.rawChecks],[trashKey,current.rawTrash]]),written=[];
+      const unchanged=()=>[...expected].every(([key,value])=>localStorage.getItem(key)===value);
+      if(!unchanged()){say('اطلاعات در زبانه دیگری تغییر کرد؛ بازیابی متوقف شد. صفحه را تازه کنید و دوباره تلاش کنید.');return;}
+      const write=(key,value)=>{if(!unchanged())throw Error('concurrent change');const previous=expected.get(key);localStorage.setItem(key,value);written.push({key,previous,value});expected.set(key,value);};
       try{
-        localStorage.setItem(checksKey,nextChecks);changedChecks=true;
-        if(localStorage.getItem(projectsKey)!==current.rawProjects||localStorage.getItem(checksKey)!==nextChecks)throw Error('concurrent change');
-        localStorage.setItem(projectsKey,JSON.stringify([...current.projects,...added]));
+        write(checksKey,JSON.stringify(checks));
+        if(addedTrash.length)write(trashKey,JSON.stringify([...current.trash,...addedTrash]));
+        write(projectsKey,JSON.stringify([...current.projects,...added]));
       }catch(_){
-        if(changedChecks){try{if(localStorage.getItem(checksKey)!==nextChecks){say('بازیابی کامل نشد و چک‌لیست در زبانه دیگری تغییر کرده است؛ برای حفظ اطلاعات آن را بازنویسی نکردیم. صفحه و فایل پشتیبان را بررسی کنید.');return;}if(current.rawChecks===null)localStorage.removeItem(checksKey);else localStorage.setItem(checksKey,current.rawChecks);}catch(_){say('بازیابی کامل نشد و بازگرداندن خودکار ناموفق بود. داده‌های محلی را بررسی کنید و فایل پشتیبان را نگه دارید.');return;}}
+        let rollbackIncomplete=false;
+        for(const change of written.reverse()){try{if(localStorage.getItem(change.key)!==change.value){rollbackIncomplete=true;continue;}if(change.previous===null)localStorage.removeItem(change.key);else localStorage.setItem(change.key,change.previous);}catch(_){rollbackIncomplete=true;}}
+        if(rollbackIncomplete){say('بازیابی کامل نشد؛ داده تغییرکرده در زبانه دیگر را بازنویسی نکردیم یا بازگرداندن خودکار ناموفق بود. اطلاعات و فایل پشتیبان را بررسی کنید.');return;}
         say('بازیابی انجام نشد؛ فضای ذخیره‌سازی و دسترسی مرورگر را بررسی کنید.');return;
       }
       window.dispatchEvent(new Event('yasbuildos-projects-updated'));
-      say(`${added.length.toLocaleString('fa-IR')} پروژه همراه چک‌لیست‌های موجود در پشتیبان اضافه شد؛ موارد تکراری تغییر نکردند.`);
+      say(`${added.length.toLocaleString('fa-IR')} پروژه فعال و ${addedTrash.length.toLocaleString('fa-IR')} پروژه حذف‌شده همراه چک‌لیست‌های موجود اضافه شد؛ موارد تکراری تغییر نکردند.`);
     }catch(_){say('فایل معتبر نیست، بیش از ۱۰ مگابایت است یا داده‌های محلی خوانده نمی‌شوند؛ بازیابی انجام نشد.');}
     finally{input.value='';}
   });
