@@ -1,6 +1,7 @@
 // پروژه‌های این نسخه فقط در مرورگر همین دستگاه نگهداری می‌شوند.
 (() => {
   const key = 'yasbuildos.projects.v1';
+  const trashKey = 'yasbuildos.projects.trash.v1';
   const byId = id => document.getElementById(id);
   const form = byId('projectForm');
   const message = byId('projectMessage');
@@ -51,10 +52,48 @@
     return node;
   }
 
+  function readTrash() {
+    const raw = localStorage.getItem(trashKey);
+    const entries = raw === null ? [] : JSON.parse(raw);
+    if (!Array.isArray(entries) || entries.some(e => !e || !e.project || typeof e.project.id !== 'string' || typeof e.project.name !== 'string' || typeof e.deletedAt !== 'string') || new Set(entries.map(e => e.project.id)).size !== entries.length) throw new Error('invalid trash');
+    return {raw, entries};
+  }
+
+  function renderTrash() {
+    const target = byId('projectTrashList');
+    target.replaceChildren();
+    let entries;
+    try { entries = readTrash().entries; }
+    catch (_) { addText(target, 'p', 'فهرست پروژه‌های حذف‌شده خوانده نشد. برای حفظ اطلاعات، حذف پروژه غیرفعال است.', 'project-empty'); return; }
+    if (!entries.length) { addText(target, 'p', 'پروژه حذف‌شده‌ای وجود ندارد.', 'project-empty'); return; }
+    for (const entry of [...entries].reverse()) {
+      const row = document.createElement('div'); row.className = 'project-item';
+      addText(row, 'strong', entry.project.name);
+      const restore = addText(row, 'button', 'بازیابی پروژه', 'btn secondary sm'); restore.type = 'button';
+      restore.addEventListener('click', () => {
+        let current;
+        try { current = readTrash(); } catch (_) { setMessage('فهرست پروژه‌های حذف‌شده خوانده نشد.', true); return; }
+        const found = current.entries.find(e => e.project.id === entry.project.id);
+        if (!found || JSON.stringify(found) !== JSON.stringify(entry)) { setMessage('اطلاعات پروژه حذف‌شده تغییر کرده است؛ صفحه را تازه کنید.', true); return; }
+        if (projects.some(p => p.id === entry.project.id)) { setMessage('پروژه‌ای با همین شناسه در فهرست وجود دارد؛ برای جلوگیری از بازنویسی، بازیابی انجام نشد.', true); return; }
+        if (!save([...projects, found.project])) return;
+        try {
+          if (localStorage.getItem(trashKey) !== current.raw) throw new Error('changed');
+          localStorage.setItem(trashKey, JSON.stringify(current.entries.filter(e => e.project.id !== entry.project.id)));
+          render(); setMessage('پروژه بازیابی شد؛ چک‌لیست موجود آن نیز دوباره در دسترس است.');
+        } catch (_) {
+          render(); setMessage('پروژه بازیابی شد، اما نسخه سطل بازیافت باقی ماند. برای بررسی صفحه را تازه کنید.', true);
+        }
+      });
+      target.appendChild(row);
+    }
+  }
+
   const number = value => new Intl.NumberFormat('fa-IR', {maximumFractionDigits: 2}).format(value);
   const normalize = value => String(value || '').normalize('NFKC').replace(/[يك]/g, c => c === 'ي' ? 'ی' : 'ک').toLocaleLowerCase().trim();
   function render() {
     list.replaceChildren();
+    renderTrash();
     const query=normalize(byId('projectSearch').value), status=byId('projectStatusFilter').value;
     const filtered=projects.filter(p=>(!query||normalize([p.name,p.city,p.type].filter(Boolean).join(' ')).includes(query))&&(!status||p.status===status));
     count.textContent = 'نمایش ' + number(filtered.length) + ' از ' + number(projects.length) + ' پروژه';
@@ -100,11 +139,22 @@
       remove.type = 'button';
       remove.setAttribute('aria-label', 'حذف پروژه ' + project.name);
       remove.addEventListener('click', () => {
-        if (!confirm('پروژه «' + project.name + '» از این مرورگر حذف شود؟')) return;
-        if (!save(projects.filter(item => item.id !== project.id))) return;
+        if (!confirm('پروژه «' + project.name + '» به فهرست پروژه‌های حذف‌شده در همین مرورگر منتقل شود؟')) return;
+        let trash, written;
+        try {
+          trash = readTrash();
+          if (trash.entries.some(e => e.project.id === project.id)) throw new Error('duplicate');
+          if (localStorage.getItem(key) !== lastRaw || localStorage.getItem(trashKey) !== trash.raw) throw new Error('changed');
+          written = JSON.stringify([...trash.entries, {project, deletedAt: new Date().toISOString()}]);
+          localStorage.setItem(trashKey, written);
+        } catch (_) { setMessage('انتقال به فهرست حذف‌شده‌ها انجام نشد؛ داده‌ها یا فضای مرورگر را بررسی و صفحه را تازه کنید.', true); return; }
+        if (!save(projects.filter(item => item.id !== project.id))) {
+          try { if (localStorage.getItem(trashKey) === written) { if (trash.raw === null) localStorage.removeItem(trashKey); else localStorage.setItem(trashKey, trash.raw); } } catch (_) {}
+          renderTrash(); return;
+        }
         if (editing === project.id) reset();
         render();
-        setMessage('پروژه از همین مرورگر حذف شد.');
+        setMessage('پروژه به فهرست حذف‌شده‌ها منتقل شد و در همین مرورگر قابل بازیابی است.');
       });
       card.appendChild(actions);
       list.appendChild(card);
@@ -130,6 +180,7 @@
   byId('projectReload').addEventListener('click',refreshList);
   render();
   window.addEventListener('storage', event => {
+    if (event.key === trashKey) { renderTrash(); return; }
     if (event.key !== key && event.key !== null) return;
     setMessage('فهرست پروژه‌ها در زبانه دیگری تغییر کرد؛ پیش از ادامه آن را به‌روزرسانی کنید.', true);
   });
