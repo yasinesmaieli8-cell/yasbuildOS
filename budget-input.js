@@ -32,8 +32,7 @@
     if (!Number.isFinite(number) || whole > BigInt(limit) || (whole === BigInt(limit) && /[1-9]/.test(fraction))) return { error: 'مبلغ نمی‌تواند بیشتر از ۱٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد.' };
     return { raw, number };
   }
-  function setup(id) {
-    const input = document.getElementById(id), hint = document.getElementById(id + 'Hint');
+  function setupElements(input, hint) {
     function refresh(keepCursor = false) {
       const position = input.selectionStart;
       const before = keepCursor && position !== null ? ascii(input.value.slice(0, position)).replace(/[^0-9.٫]/g, '').length : null;
@@ -56,5 +55,6 @@
     refresh();
     return { get: () => { const data = parse(input.value); return data.empty ? null : data.error ? NaN : data.number; }, set: value => { input.value = value == null ? '' : String(value); refresh(); } };
   }
-  window.budgetInputs = Object.fromEntries(['projectBudget', 'cloudProjectBudget', 'checkReserve', 'checkUnitPrice', 'checkExtra', 'checkPaid'].map(id => [id, setup(id)]));
+  window.budgetInputs = Object.fromEntries(['projectBudget', 'cloudProjectBudget', 'checkReserve', 'checkUnitPrice', 'checkExtra', 'checkPaid'].map(id => [id, setupElements(document.getElementById(id), document.getElementById(id + 'Hint'))]));
+  window.budgetInputs.attach = setupElements;
 })();
