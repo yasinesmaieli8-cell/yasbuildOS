@@ -11,7 +11,7 @@
       for(const p of projects){
         const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[];
         rows+=items.length;
-        for(const i of items){ if(i.done)done++; if(i.unitPrice===null)missing++; if(i.status==='پرداخت‌شده')spent+=Number(i.paid)||0; if(i.status==='متعهدشده')commitments+=Number(i.paid)||0; if(!i.done && /^\d{4}-\d{2}-\d{2}$/.test(i.due||''))due.push({name:i.name,project:p.name,date:i.due,assignee:i.assignee||''}); }
+        for(const i of items){ if(i.done)done++; if(i.unitPrice===null)missing++; if(i.status==='پرداخت‌شده')spent+=Number(i.paid)||0; if(i.status==='متعهدشده')commitments+=Number(i.paid)||0; if(!i.done && /^\d{4}-\d{2}-\d{2}$/.test(i.due||''))due.push({name:i.name,project:p.name,date:i.due,assignee:i.assignee||'',priority:i.priority||'معمولی'}); }
       }
       $('dashProjectCount').textContent=fmt(projects.length); $('dashTaskCount').textContent=fmt(rows);
       $('dashDone').textContent=fmt(done); $('dashSpent').textContent=fmt(spent)+' تومان';
@@ -27,7 +27,7 @@
       const deadlines=$('dashDue');deadlines.replaceChildren();
       const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
       for(const item of due.sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5)){
-        const row=document.createElement('p');row.textContent=[item.name,item.project,item.date,item.assignee?'مسئول: '+item.assignee:'',item.date<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');deadlines.appendChild(row);
+        const row=document.createElement('p');row.textContent=[item.name,item.project,item.date,'اولویت: '+item.priority,item.assignee?'مسئول: '+item.assignee:'',item.date<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');deadlines.appendChild(row);
       }
       if(!due.length)deadlines.textContent='فعالیت انجام‌نشده با موعد ثبت نشده است.';
     }catch(_){$('dashSummary').textContent='اطلاعات محلی خوانده نشد. دسترسی مرورگر به فضای ذخیره‌سازی را بررسی کنید.';}
