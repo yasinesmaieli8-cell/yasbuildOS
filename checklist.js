@@ -25,6 +25,7 @@
     catch (_) { msg('ذخیره انجام نشد؛ فضای ذخیره‌سازی مرورگر را بررسی کنید.'); return false; }
   }
   const state = () => all[selected] || {reserve:0, items:[]};
+  const validStageBudgets = budgets => Array.isArray(budgets) && budgets.length <= 10000 && budgets.every(b => b && typeof b.stage === 'string' && b.stage.trim() && b.stage.length <= 100 && typeof b.amount === 'number' && Number.isFinite(b.amount) && b.amount >= 0 && b.amount <= 1e15) && new Set(budgets.map(b => b.stage)).size === budgets.length && Number.isSafeInteger(Math.round(budgets.reduce((sum, b) => sum + b.amount, 0)));
   function showUndo() {
     const button = $('checkUndoDelete');
     button.hidden = !deletedItem || deletedItem.projectId !== selected;
@@ -138,6 +139,21 @@
     const summary=$('checkStages');summary.replaceChildren();
     for(const [name,group] of byStage){const row=document.createElement('p');row.textContent=`${name}: ${number(group.count)} ردیف · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' بدون قیمت':''} · پرداخت‌شده ${money(group.spent)} · تعهد ${money(group.committed)}${budget>0?' · '+number(group.estimate/budget*100)+'٪ بودجه (برآورد اقلام قیمت‌دار)':''}`;summary.appendChild(row);}
     if(!byStage.size)summary.textContent='هنوز هزینه‌ای برای نمایش ثبت نشده است.';
+    const allocations=s.stageBudgets===undefined?[]:s.stageBudgets, allocationList=$('checkStageBudgetList'), stageChoice=$('checkStageBudgetStage'), selectedStage=stageChoice.value;
+    allocationList.replaceChildren();stageChoice.replaceChildren();
+    const choose=document.createElement('option');choose.value='';choose.textContent='انتخاب مرحله';stageChoice.appendChild(choose);
+    if(validStageBudgets(allocations)){
+      const stageNames=new Set([...byStage.keys(),...allocations.map(x=>x.stage)]);
+      for(const stage of stageNames){const option=document.createElement('option');option.value=stage;option.textContent=stage;stageChoice.appendChild(option);}
+      stageChoice.value=stageNames.has(selectedStage)?selectedStage:'';
+      let allocated=0;
+      for(const allocation of allocations){
+        allocated+=allocation.amount;const group=byStage.get(allocation.stage)||{estimate:0,spent:0,committed:0,missing:0};
+        const row=document.createElement('p');row.textContent=`${allocation.stage}: سقف ${money(allocation.amount)} · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' ردیف بدون قیمت':''} · پرداخت و تعهد ${money(group.spent+group.committed)} · مانده سقف پس از پرداخت و تعهد ${money(allocation.amount-group.spent-group.committed)}${group.estimate>allocation.amount||group.spent+group.committed>allocation.amount?' · هشدار عبور از سقف':''}`;allocationList.appendChild(row);
+      }
+      if(!allocations.length)allocationList.textContent='هنوز سقفی برای مراحل ثبت نشده است.';
+      $('checkStageBudgetTotal').textContent=`جمع سقف مراحل: ${money(allocated)}${budget===null?' · بودجه کل ثبت نشده':` · بودجه تخصیص‌نیافته پس از ذخیره احتیاطی: ${money(budget-reserve-allocated)}${allocated+reserve>budget?' · هشدار: جمع سقف‌ها و ذخیره از بودجه بیشتر است':''}`}`;
+    }else{$('checkStageBudgetTotal').textContent='سقف‌های ثبت‌شده معتبر نیستند؛ برای جلوگیری از بازنویسی، ویرایش آن‌ها غیرفعال است.';}
     const costSummary=$('checkCostSummary');costSummary.replaceChildren();
     for(const [name,group] of byCostType){const row=document.createElement('p');row.textContent=`${name}: ${number(group.count)} ردیف · برآورد ${money(group.estimate)}${group.missing?' + '+number(group.missing)+' بدون قیمت':''} · پرداخت‌شده ${money(group.spent)} · تعهد ${money(group.committed)}`;costSummary.appendChild(row);}
     if(!byCostType.size)costSummary.textContent='هنوز هزینه‌ای برای نمایش ثبت نشده است.';
@@ -160,12 +176,24 @@
     $('checkScenarioResult').textContent=Number.isFinite(change)&&change>=-100&&change<=1000?`برآورد سناریو: ${money(estimate+pricedBase*change/100)}${missing?' + '+number(missing)+' قلم بدون قیمت':''}`:'درصد تغییر باید بین ۱۰۰- تا ۱۰۰۰ باشد.';
     $('checkWarning').textContent=budget!==null && (spent+committed+reserve>budget || estimate+reserve>budget)?'هشدار: مجموع برآورد یا هزینه‌ها با ذخیره احتیاطی از بودجه بیشتر است.':'';
   }
-  const selectProject=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';resetForm();render();};
+  const selectProject=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';$('checkStageBudgetStage').value='';window.budgetInputs.checkStageBudget.set(null);resetForm();render();};
   $('checkProject').onchange=selectProject;
   $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkCostFilter').onchange=render; $('checkSort').onchange=render; $('checkScenario').oninput=render;
   $('checkReload').onclick=()=>{refreshProjects();if(healthy)msg('فهرست به‌روزرسانی شد؛ اگر مشغول ویرایش بودید، تغییرات ردیف را بررسی کنید.');};
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=window.budgetInputs.checkReserve.get()??0;if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;
+  $('checkStageBudgetStage').onchange=()=>{const allocations=state().stageBudgets||[],entry=Array.isArray(allocations)?allocations.find(item=>item.stage===$('checkStageBudgetStage').value):null;window.budgetInputs.checkStageBudget.set(entry?.amount??null);};
+  $('checkStageBudgetSave').onclick=()=>{
+    if(!selected)return;const current=state(), allocations=current.stageBudgets===undefined?[]:current.stageBudgets, stage=$('checkStageBudgetStage').value, amount=window.budgetInputs.checkStageBudget.get();
+    if(!validStageBudgets(allocations)||!stage||!current.items.some(item=>item.stage===stage)&&!allocations.some(item=>item.stage===stage)||amount===null||!Number.isFinite(amount)||amount<0||amount>1e15){msg('مرحله و سقف معتبر به تومان وارد کنید.');return;}
+    const next=[...allocations.filter(item=>item.stage!==stage),{stage,amount}];if(!validStageBudgets(next)){msg('مجموع سقف‌ها از محدوده قابل محاسبه بیشتر است.');return;}
+    if(save({...all,[selected]:{...current,stageBudgets:next}})){render();msg('سقف مرحله ثبت شد. این مبلغ برنامه‌ریزی است و هزینه واقعی محسوب نمی‌شود.');}
+  };
+  $('checkStageBudgetRemove').onclick=()=>{
+    if(!selected)return;const current=state(),allocations=current.stageBudgets===undefined?[]:current.stageBudgets,stage=$('checkStageBudgetStage').value;
+    if(!validStageBudgets(allocations)||!allocations.some(item=>item.stage===stage)){msg('برای حذف سقف، مرحله دارای سقف را انتخاب کنید.');return;}
+    if(save({...all,[selected]:{...current,stageBudgets:allocations.filter(item=>item.stage!==stage)}})){render();msg('سقف مرحله حذف شد؛ ردیف‌ها و هزینه‌های آن تغییر نکردند.');}
+  };
   $('checkUndoDelete').onclick=()=>{
     if(!deletedItem||deletedItem.projectId!==selected)return;
     const current=state();
@@ -228,6 +256,9 @@
     const stageRows=Array.from($('checkStages').children);if(stageRows.length)for(const row of stageRows)add(report,'p',row.textContent);else add(report,'p',$('checkStages').textContent);
     add(report,'h2','خلاصه هزینه‌ها به تفکیک نوع');
     const typeRows=Array.from($('checkCostSummary').children);if(typeRows.length)for(const row of typeRows)add(report,'p',row.textContent);else add(report,'p',$('checkCostSummary').textContent);
+    add(report,'h2','سقف بودجه مراحل');
+    add(report,'p',$('checkStageBudgetTotal').textContent);
+    const allocationRows=Array.from($('checkStageBudgetList').children);if(allocationRows.length)for(const row of allocationRows)add(report,'p',row.textContent);else add(report,'p',$('checkStageBudgetList').textContent);
     add(report,'p',$('checkPriceAge').textContent);
     if($('checkWarning').textContent)add(report,'p',$('checkWarning').textContent);
     window.print();
@@ -247,8 +278,8 @@
       if(selected!==projectId){msg('پروژه انتخابی عوض شد؛ دوباره فایل را انتخاب کنید.');return;}
       const current=state(), ids=new Set(current.items.map(i=>i.id)), added=saved.items.filter(i=>!ids.has(i.id));
       if(current.items.length+added.length>10000)throw Error('too many');
-      if(!confirm(`${added.length.toLocaleString('fa-IR')} ردیف تازه به پروژه انتخابی اضافه شود؟ ردیف‌های تکراری و ذخیره احتیاطی فعلی تغییر نمی‌کنند.`))return;
-      if(save({...all,[projectId]:{...current,items:[...current.items,...added]}})){resetForm();render();msg(`${added.length.toLocaleString('fa-IR')} ردیف بازیابی شد؛ ردیف‌های تکراری و ذخیره احتیاطی فعلی تغییر نکردند.`);}
+      if(!confirm(`${added.length.toLocaleString('fa-IR')} ردیف تازه به پروژه انتخابی اضافه شود؟ ردیف‌های تکراری، ذخیره احتیاطی و سقف مراحل فعلی تغییر نمی‌کنند.`))return;
+      if(save({...all,[projectId]:{...current,items:[...current.items,...added]}})){resetForm();render();msg(`${added.length.toLocaleString('fa-IR')} ردیف بازیابی شد؛ ردیف‌های تکراری، ذخیره احتیاطی و سقف مراحل فعلی تغییر نکردند.`);}
     } catch (_) {msg('فایل چک‌لیست معتبر نیست یا بیش از ۵ مگابایت است؛ اطلاعات قبلی تغییر نکرد.');}
     finally {input.value='';}
   });

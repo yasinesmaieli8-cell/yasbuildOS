@@ -55,6 +55,6 @@
     refresh();
     return { get: () => { const data = parse(input.value); return data.empty ? null : data.error ? NaN : data.number; }, set: value => { input.value = value == null ? '' : String(value); refresh(); } };
   }
-  window.budgetInputs = Object.fromEntries(['projectBudget', 'cloudProjectBudget', 'checkReserve', 'checkUnitPrice', 'checkExtra', 'checkPaid'].map(id => [id, setupElements(document.getElementById(id), document.getElementById(id + 'Hint'))]));
+  window.budgetInputs = Object.fromEntries(['projectBudget', 'cloudProjectBudget', 'checkReserve', 'checkUnitPrice', 'checkExtra', 'checkPaid', 'checkStageBudget'].map(id => [id, setupElements(document.getElementById(id), document.getElementById(id + 'Hint'))]));
   window.budgetInputs.attach = setupElements;
 })();
