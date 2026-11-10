@@ -2,21 +2,24 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const source=await readFile('checklist.js','utf8');
-function element(){return {children:[],value:'',textContent:'',hidden:false,handlers:{},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},replaceChildren(){this.children=[]},set onclick(f){this.handlers.click=f},set onchange(f){this.handlers.change=f},set onsubmit(f){this.handlers.submit=f},addEventListener(k,f){this.handlers[k]=f},reset(){},focus(){},click(){},reportValidity(){return true}}}
+function element(){return {children:[],value:'',textContent:'',hidden:false,selectionStart:0,form:null,handlers:{},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},replaceChildren(){this.children=[]},set onclick(f){this.handlers.click=f},set onchange(f){this.handlers.change=f},set onsubmit(f){this.handlers.submit=f},addEventListener(k,f){this.handlers[k]=f},setCustomValidity(){},setSelectionRange(){},reset(){},focus(){},click(){},reportValidity(){return true}}}
 const els={}; const el=id=>els[id] ||= element(); const nav=element(); const project={id:'p1',name:'پروژه',budget:100000000};
 const store={'yasbuildos.projects.v1':JSON.stringify([project])};
 const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}};
 const document={getElementById:el,createElement:element,querySelector:()=>nav};
 let exported; const fakeURL={createObjectURL(blob){exported=blob;return 'blob:test'},revokeObjectURL(){}};
 let printed=false;
-vm.runInNewContext(source,{document,localStorage,Intl,crypto:{randomUUID:()=> 'id-1'},confirm:()=>true,console,URL:fakeURL,Blob,setTimeout,window:{print(){printed=true}}});
+const window={print(){printed=true}};
+vm.runInNewContext(await readFile('budget-input.js','utf8'),{document,window,queueMicrotask});
+vm.runInNewContext(source,{document,localStorage,Intl,crypto:{randomUUID:()=> 'id-1'},confirm:()=>true,console,URL:fakeURL,Blob,setTimeout,window});
 el('checkProject').value='p1';el('checkProject').handlers.change();
-Object.assign(el('checkName'),{value:'سیمان'});el('checkStage').value='پی';el('checkPriority').value='بالا';el('checkCostType').value='مصالح';el('checkQuantity').value='100';el('checkUnit').value='کیسه';el('checkUnitPrice').value='200000';el('checkExtra').value='0';el('checkStatus').value='پرداخت‌شده';el('checkPaid').value='15000000';el('checkAssignee').value='علی';el('checkDue').value='2020-01-01';el('checkForm').handlers.submit({preventDefault(){}});
-el('checkReserve').value='10000000';el('checkReserveSave').handlers.click();
+Object.assign(el('checkName'),{value:'سیمان'});el('checkStage').value='پی';el('checkPriority').value='بالا';el('checkCostType').value='مصالح';el('checkQuantity').value='100';el('checkUnit').value='کیسه';el('checkUnitPrice').value='۲۰۰٬۰۰۰';el('checkExtra').value='0';el('checkStatus').value='پرداخت‌شده';el('checkPaid').value='۱۵٬۰۰۰٬۰۰۰';el('checkAssignee').value='علی';el('checkDue').value='2020-01-01';el('checkForm').handlers.submit({preventDefault(){}});
+el('checkReserve').value='۱۰٬۰۰۰٬۰۰۰';el('checkReserveSave').handlers.click();
 assert.equal(el('checkEstimate').textContent,'۲۰٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkBalance').textContent,'۷۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkPlanBalance').textContent,'۷۰٬۰۰۰٬۰۰۰ تومان');
+el('checkReserve').value='12000000';el('checkSearch').value='سیمان';el('checkSearch').oninput();assert.equal(el('checkReserve').value,'12000000');el('checkReserve').value='10000000';el('checkSearch').value='';el('checkSearch').oninput();
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].costType,'مصالح');assert.ok(el('checkCostSummary').children[0].textContent.includes('۱۵٬۰۰۰٬۰۰۰ تومان'));
 assert.ok(el('checkMaterialsSummary').textContent.includes('۱ ردیف'));assert.ok(el('checkMaterials').children[0].textContent.includes('سیمان'));assert.ok(el('checkMaterials').children[0].textContent.includes('پرداخت‌شده'));
 el('checkScenario').value='10';el('checkScenario').oninput();assert.equal(el('checkScenarioResult').textContent,'برآورد سناریو: ۲۲٬۰۰۰٬۰۰۰ تومان');assert.ok(el('checkPriceAge').textContent.includes('۱ قیمت تاریخ ندارد'));

@@ -5,7 +5,7 @@
   const money = n => number(n) + ' تومان';
   const stages = ['آماده‌سازی و مجوزها','خاک‌برداری','پی و فونداسیون','اسکلت و سقف','دیوارچینی','تأسیسات','نازک‌کاری','نما و محوطه','تحویل'];
   const costTypes = ['دسته‌بندی نشده','مصالح','دستمزد','حمل','تجهیزات','سایر هزینه‌ها'];
-  let all = {}, projects = [], selected = '', editing = null, healthy = true;
+  let all = {}, projects = [], selected = '', editing = null, healthy = true, reserveProject = null;
   const msg = text => { $('checkMessage').textContent = text; };
   function read() {
     try {
@@ -30,12 +30,12 @@
     $('checkProject').replaceChildren();
     const blank=document.createElement('option'); blank.value=''; blank.textContent='انتخاب پروژه محلی'; $('checkProject').appendChild(blank);
     for (const p of projects) { const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; $('checkProject').appendChild(o); }
-    selected=projects.some(p=>p.id===previous)?previous:''; $('checkProject').value=selected; render();
+    selected=projects.some(p=>p.id===previous)?previous:''; $('checkProject').value=selected; reserveProject=null; render();
   }
   function render(){
     const box=$('checkContent'); box.hidden=!selected; if(!selected) return;
     const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[];
-    $('checkReserve').value=s.reserve || '';
+    if(reserveProject!==selected){window.budgetInputs.checkReserve.set(s.reserve || null);reserveProject=selected;}
     let estimate=0, pricedBase=0, spent=0, committed=0, missing=0, done=0, shown=0, stale=0, undated=0;
     const byStage=new Map(), byCostType=new Map();
     const search=$('checkSearch').value.trim(), filter=$('checkFilter').value, costFilter=$('checkCostFilter').value, stageFilter=items.some(item=>item.stage===$('checkStageFilter').value)?$('checkStageFilter').value:'';
@@ -79,7 +79,7 @@
       const actions=document.createElement('div'); actions.className='project-actions';
       const toggle=document.createElement('button'); toggle.type='button'; toggle.className='btn secondary sm'; toggle.textContent=item.done?'علامت به‌عنوان انجام‌نشده':'علامت به‌عنوان انجام‌شده';
       toggle.onclick=()=>{const current=state(); const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
-      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id; for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkUnit:item.unit,checkUnitPrice:item.unitPrice??'',checkExtra:item.extra,checkStatus:item.status,checkPaid:item.paid,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||''})) $(id).value=val; $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
+      const edit=document.createElement('button'); edit.type='button'; edit.className='btn secondary sm'; edit.textContent='ویرایش'; edit.onclick=()=>{editing=item.id; for(const [id,val] of Object.entries({checkName:item.name,checkStage:stages.includes(item.stage)?item.stage:stages[0],checkCustomStage:stages.includes(item.stage)?'':item.stage,checkPriority:item.priority||'معمولی',checkCostType:item.costType||costTypes[0],checkQuantity:item.quantity,checkUnit:item.unit,checkStatus:item.status,checkSource:item.source,checkDate:item.date,checkAssignee:item.assignee||'',checkDue:item.due||''})) $(id).value=val; for(const [id,val] of Object.entries({checkUnitPrice:item.unitPrice,checkExtra:item.extra,checkPaid:item.paid})) window.budgetInputs[id].set(val); $('checkSubmit').textContent='ذخیره تغییرات'; $('checkCancel').hidden=false; $('checkName').focus();};
       const remove=document.createElement('button'); remove.type='button'; remove.className='btn secondary sm'; remove.textContent='حذف'; remove.onclick=()=>{if(!confirm('این ردیف از چک‌لیست حذف شود؟'))return; const current=state(); if(save({...all,[selected]:{...current,items:current.items.filter(x=>x.id!==item.id)}})){if(editing===item.id)resetForm();render();}};
       const copy=document.createElement('button'); copy.type='button'; copy.className='btn secondary sm'; copy.textContent='کپی ردیف'; copy.onclick=()=>{const current=state();if(current.items.length>=10000){msg('تعداد ردیف‌ها به حد مجاز رسیده است.');return;}const duplicate={...item,id:crypto.randomUUID(),done:false,status:'برآورد',paid:0};if(save({...all,[selected]:{...current,items:[...current.items,duplicate]}})){render();msg('کپی اضافه شد؛ پرداخت یا تعهد نسخه جدید صفر و وضعیت آن برآورد است.');}};
       actions.append(toggle,edit,remove,copy); row.appendChild(actions); $('checkItems').appendChild(row);
@@ -116,12 +116,12 @@
   $('checkProject').onchange=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';resetForm();render();};
   $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkCostFilter').onchange=render; $('checkScenario').oninput=render;
   $('checkReload').onclick=refreshProjects;
-  $('checkReserveSave').onclick=()=>{if(!selected)return;const v=Number($('checkReserve').value);if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
+  $('checkReserveSave').onclick=()=>{if(!selected)return;const v=window.budgetInputs.checkReserve.get()??0;if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;
   $('checkForm').onsubmit=e=>{
     e.preventDefault(); if(!selected||!healthy||!$('checkForm').reportValidity())return;
-    const n=id=>Number($(id).value), unitPrice=$('checkUnitPrice').value===''?null:n('checkUnitPrice');
-    const item={id:editing||crypto.randomUUID(),name:$('checkName').value.trim(),stage:$('checkCustomStage').value.trim()||$('checkStage').value,priority:$('checkPriority').value||'معمولی',costType:$('checkCostType').value||costTypes[0],quantity:n('checkQuantity'),unit:$('checkUnit').value.trim(),unitPrice,extra:n('checkExtra'),status:$('checkStatus').value,paid:n('checkPaid'),source:$('checkSource').value.trim(),date:$('checkDate').value,assignee:$('checkAssignee').value.trim(),due:$('checkDue').value,done:editing?(state().items.find(x=>x.id===editing)?.done||false):false};
+    const n=id=>Number($(id).value), unitPrice=window.budgetInputs.checkUnitPrice.get();
+    const item={id:editing||crypto.randomUUID(),name:$('checkName').value.trim(),stage:$('checkCustomStage').value.trim()||$('checkStage').value,priority:$('checkPriority').value||'معمولی',costType:$('checkCostType').value||costTypes[0],quantity:n('checkQuantity'),unit:$('checkUnit').value.trim(),unitPrice,extra:window.budgetInputs.checkExtra.get()??0,status:$('checkStatus').value,paid:window.budgetInputs.checkPaid.get()??0,source:$('checkSource').value.trim(),date:$('checkDate').value,assignee:$('checkAssignee').value.trim(),due:$('checkDue').value,done:editing?(state().items.find(x=>x.id===editing)?.done||false):false};
     if(!item.name||!item.unit||!item.stage||item.stage.length>100||!['پایین','معمولی','بالا'].includes(item.priority)||!costTypes.includes(item.costType)||![item.quantity,item.extra,item.paid,...(unitPrice===null?[]:[unitPrice])].every(x=>Number.isFinite(x)&&x>=0&&x<=1e15)||!Number.isSafeInteger(Math.round(item.quantity*(unitPrice??0)+item.extra))){msg('مقدارها معتبر نیستند یا از محدوده قابل محاسبه بیشترند.');return;}
     const s=state(), items=editing?s.items.map(x=>x.id===editing?item:x):[...(s.items||[]),item];
     if(save({...all,[selected]:{...s,items}})){resetForm();msg('ردیف ذخیره شد.');render();}

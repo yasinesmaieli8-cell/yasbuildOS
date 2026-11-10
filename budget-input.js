@@ -29,7 +29,7 @@
     const [integer, fraction = ''] = raw.split('.');
     const whole = BigInt(integer);
     const number = Number(raw);
-    if (!Number.isFinite(number) || whole > BigInt(limit) || (whole === BigInt(limit) && /[1-9]/.test(fraction))) return { error: 'بودجه نمی‌تواند بیشتر از ۱٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد.' };
+    if (!Number.isFinite(number) || whole > BigInt(limit) || (whole === BigInt(limit) && /[1-9]/.test(fraction))) return { error: 'مبلغ نمی‌تواند بیشتر از ۱٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰٬۰۰۰ تومان باشد.' };
     return { raw, number };
   }
   function setup(id) {
@@ -52,9 +52,9 @@
       }
     }
     input.addEventListener('input', () => refresh(true));
-    input.form.addEventListener('reset', () => queueMicrotask(() => refresh()));
+    if (input.form) input.form.addEventListener('reset', () => queueMicrotask(() => refresh()));
     refresh();
     return { get: () => { const data = parse(input.value); return data.empty ? null : data.error ? NaN : data.number; }, set: value => { input.value = value == null ? '' : String(value); refresh(); } };
   }
-  window.budgetInputs = { projectBudget: setup('projectBudget'), cloudProjectBudget: setup('cloudProjectBudget') };
+  window.budgetInputs = Object.fromEntries(['projectBudget', 'cloudProjectBudget', 'checkReserve', 'checkUnitPrice', 'checkExtra', 'checkPaid'].map(id => [id, setup(id)]));
 })();
