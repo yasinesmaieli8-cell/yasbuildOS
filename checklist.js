@@ -37,7 +37,7 @@
   }
   function render(){
     const box=$('checkContent'); box.hidden=!selected; if(!selected) return;
-    const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[];
+    const project=projects.find(p=>p.id===selected), s=state(), items=Array.isArray(s.items)?s.items:[], byId=new Map(items.map(item=>[item.id,item]));
     const dependencies=$('checkDepends'), selectedDependency=dependencies.value;dependencies.replaceChildren();
     const none=document.createElement('option');none.value='';none.textContent='بدون پیش‌نیاز';dependencies.appendChild(none);
     for(const candidate of items){if(candidate.id===editing)continue;const option=document.createElement('option');option.value=candidate.id;option.textContent=candidate.name+' · '+candidate.stage;dependencies.appendChild(option);}
@@ -77,7 +77,8 @@
       if(search&&!(`${item.name} ${item.stage} ${item.unit} ${item.assignee||''} ${item.notes||''}`).includes(search))continue;
       if(stageFilter && item.stage!==stageFilter)continue;
       if(costFilter && costType!==costFilter)continue;
-      if(filter==='done'&&!item.done || filter==='open'&&item.done || filter==='missing'&&item.unitPrice!==null || filter==='overdue'&&(!item.due||item.done||item.due>=localDate) || filter==='urgent'&&(item.done||item.priority!=='بالا'))continue;
+      const prerequisite=item.dependencyId&&byId.get(item.dependencyId), blocked=!!item.dependencyId&&!item.done&&(!prerequisite||!prerequisite.done);
+      if(filter==='done'&&!item.done || filter==='open'&&item.done || filter==='missing'&&item.unitPrice!==null || filter==='overdue'&&(!item.due||item.done||item.due>=localDate) || filter==='urgent'&&(item.done||item.priority!=='بالا') || filter==='blocked'&&!blocked)continue;
       shown++;
       const row=document.createElement('article'); row.className='project-item';
       const title=document.createElement('h3'); title.textContent=item.name;
@@ -86,7 +87,7 @@
       if(item.source){ const source=document.createElement('p'); source.textContent='منبع ثبت‌شده: '+item.source+(item.date?' · '+item.date:''); row.appendChild(source); }
       if(item.assignee||item.due){const details=document.createElement('p');const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');details.textContent=[item.assignee?'مسئول: '+item.assignee:'',item.due?'موعد: '+item.due:'',item.due&&!item.done&&item.due<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');row.appendChild(details);}
       if(item.notes){const notes=document.createElement('p');notes.textContent='توضیحات: '+item.notes;row.appendChild(notes);}
-      if(item.dependencyId){const prerequisite=items.find(x=>x.id===item.dependencyId),dependency=document.createElement('p');dependency.textContent=prerequisite?'پیش‌نیاز: '+prerequisite.name+' · '+(prerequisite.done?'انجام شده':'هنوز انجام نشده'):'پیش‌نیاز یافت نشد؛ ردیف را ویرایش کنید.';row.appendChild(dependency);}
+      if(item.dependencyId){const prerequisite=byId.get(item.dependencyId),dependency=document.createElement('p');dependency.textContent=prerequisite?'پیش‌نیاز: '+prerequisite.name+' · '+(prerequisite.done?'انجام شده':'هنوز انجام نشده'):'پیش‌نیاز یافت نشد؛ ردیف را ویرایش کنید.';row.appendChild(dependency);}
       const actions=document.createElement('div'); actions.className='project-actions';
       const toggle=document.createElement('button'); toggle.type='button'; toggle.className='btn secondary sm'; toggle.textContent=item.done?'علامت به‌عنوان انجام‌نشده':'علامت به‌عنوان انجام‌شده';
       toggle.onclick=()=>{const current=state();const prior=item.dependencyId&&current.items.find(x=>x.id===item.dependencyId);if(!item.done&&item.dependencyId&&(!prior||!prior.done)&&!confirm('پیش‌نیاز این فعالیت انجام نشده یا پیدا نشد. با این حال فعالیت انجام‌شده ثبت شود؟'))return; const next=current.items.map(x=>x.id===item.id?{...x,done:!x.done}:x); if(save({...all,[selected]:{...current,items:next}})) render();};
@@ -273,11 +274,11 @@
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
   window.addEventListener('storage',event=>{if(event.key===key||event.key===null)msg('اطلاعات چک‌لیست در زبانه دیگری تغییر کرد. پیش از ادامه، فهرست را به‌روزرسانی کنید.');});
   document.querySelector('[data-tab="checklist"]').addEventListener('click',refreshProjects);
-  window.yasbuildosOpenChecklist=id=>{
+  window.yasbuildosOpenChecklist=(id,filter='all')=>{
     refreshProjects();
     if(!healthy||!projects.some(project=>project.id===id))return false;
     document.querySelector('[data-tab="checklist"]').click();
-    $('checkSearch').value='';$('checkFilter').value='all';$('checkCostFilter').value='';
+    $('checkSearch').value='';$('checkFilter').value=filter==='blocked'?'blocked':'all';$('checkCostFilter').value='';
     $('checkProject').value=id;selectProject();
     return true;
   };

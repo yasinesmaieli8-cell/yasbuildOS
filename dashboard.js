@@ -14,10 +14,17 @@
     }
     return due.sort((a,b)=>a.date.localeCompare(b.date));
   }
+  function blockedItems(projects,checks){
+    const blocked=[];
+    for(const p of projects){const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[],byId=new Map(items.map(item=>[item.id,item]));
+      for(const item of items){if(item.done||!item.dependencyId)continue;const prior=byId.get(item.dependencyId);if(!prior||!prior.done)blocked.push({name:item.name,project:p.name,projectId:p.id,prior:prior?prior.name:'پیش‌نیاز یافت نشد',missing:!prior});}
+    }
+    return blocked;
+  }
   function render(){
     const list=$('dashProjects'); list.replaceChildren();
     try {
-      const {projects,checks}=readData(),due=dueItems(projects,checks);
+      const {projects,checks}=readData(),due=dueItems(projects,checks),blocked=blockedItems(projects,checks);
       let rows=0, done=0, spent=0, commitments=0, missing=0;
       for(const p of projects){
         const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[];
@@ -64,6 +71,16 @@
         row.append(desc,open);deadlines.appendChild(row);
       }
       if(!due.length)deadlines.textContent='فعالیت انجام‌نشده با موعد ثبت نشده است.';
+      const waiting=$('dashBlocked');waiting.replaceChildren();
+      $('dashBlockedCount').textContent=`${fmt(blocked.length)} فعالیت منتظر پیش‌نیاز · نمایش حداکثر ۵ مورد`;
+      for(const item of blocked.slice(0,5)){
+        const row=document.createElement('div'),desc=document.createElement('p'),open=document.createElement('button');
+        desc.textContent=[item.name,item.project,item.missing?item.prior:'منتظر: '+item.prior].join(' · ');
+        open.type='button';open.className='btn secondary sm';open.textContent='بررسی فعالیت‌ها';open.setAttribute('aria-label','بررسی فعالیت‌های منتظر در پروژه '+item.project);
+        open.addEventListener('click',()=>{if(!window.yasbuildosOpenChecklist||!window.yasbuildosOpenChecklist(item.projectId,'blocked'))$('dashSummary').textContent='باز کردن پروژه ممکن نشد؛ فهرست پروژه‌ها را بررسی کنید.';});
+        row.append(desc,open);waiting.appendChild(row);
+      }
+      if(!blocked.length)waiting.textContent='فعالیتی منتظر پیش‌نیاز ثبت نشده است.';
     }catch(_){$('dashSummary').textContent='اطلاعات محلی خوانده نشد. دسترسی مرورگر به فضای ذخیره‌سازی را بررسی کنید.';}
   }
   $('dashDueCsv').addEventListener('click',()=>{

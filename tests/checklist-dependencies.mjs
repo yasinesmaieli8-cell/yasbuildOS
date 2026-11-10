@@ -18,6 +18,8 @@ const row=name=>el('checkItems').children.find(x=>x.children[0].textContent===na
 const actions=name=>row(name).children.find(x=>x.className==='project-actions').children;
 actions('اجرای پی')[1].handlers.click();el('checkDepends').value='a';el('checkForm').handlers.submit({preventDefault(){}});
 assert.equal(saved()[1].dependencyId,'a');assert.ok(row('اجرای پی').children.some(x=>x.textContent.includes('پیش‌نیاز: خاک‌برداری')));
+el('checkFilter').value='blocked';el('checkFilter').handlers.change();assert.equal(el('checkItems').children.length,1);assert.equal(row('اجرای پی').children[0].textContent,'اجرای پی');
+assert.equal(window.yasbuildosOpenChecklist('p','blocked'),true);assert.equal(el('checkFilter').value,'blocked');assert.equal(el('checkItems').children.length,1);el('checkFilter').value='all';el('checkFilter').handlers.change();
 actions('خاک‌برداری')[1].handlers.click();el('checkDepends').value='b';el('checkForm').handlers.submit({preventDefault(){}});assert.ok(el('checkMessage').textContent.includes('دوری'));assert.equal(saved()[0].dependencyId,undefined);
 el('checkCancel').handlers.click();approve=false;actions('اجرای پی')[0].handlers.click();assert.equal(saved()[1].done,false);
 approve=true;actions('اجرای پی')[0].handlers.click();assert.equal(saved()[1].done,true);
