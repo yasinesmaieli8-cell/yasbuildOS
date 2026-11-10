@@ -44,12 +44,15 @@
       const checks=Object.assign(Object.create(null),current.checks);
       for(const p of added)if(Object.hasOwn(backup.checklists,p.id))checks[p.id]=backup.checklists[p.id];
       if(Object.keys(checks).length>10000)throw Error('too many checklists');
+      const nextChecks=JSON.stringify(checks);
+      if(localStorage.getItem(projectsKey)!==current.rawProjects||localStorage.getItem(checksKey)!==current.rawChecks){say('اطلاعات در زبانه دیگری تغییر کرد؛ بازیابی متوقف شد. صفحه را تازه کنید و دوباره تلاش کنید.');return;}
       let changedChecks=false;
       try{
-        localStorage.setItem(checksKey,JSON.stringify(checks));changedChecks=true;
+        localStorage.setItem(checksKey,nextChecks);changedChecks=true;
+        if(localStorage.getItem(projectsKey)!==current.rawProjects||localStorage.getItem(checksKey)!==nextChecks)throw Error('concurrent change');
         localStorage.setItem(projectsKey,JSON.stringify([...current.projects,...added]));
       }catch(_){
-        if(changedChecks){try{if(current.rawChecks===null)localStorage.removeItem(checksKey);else localStorage.setItem(checksKey,current.rawChecks);}catch(_){say('بازیابی کامل نشد و بازگرداندن خودکار ناموفق بود. داده‌های محلی را بررسی کنید و فایل پشتیبان را نگه دارید.');return;}}
+        if(changedChecks){try{if(localStorage.getItem(checksKey)!==nextChecks){say('بازیابی کامل نشد و چک‌لیست در زبانه دیگری تغییر کرده است؛ برای حفظ اطلاعات آن را بازنویسی نکردیم. صفحه و فایل پشتیبان را بررسی کنید.');return;}if(current.rawChecks===null)localStorage.removeItem(checksKey);else localStorage.setItem(checksKey,current.rawChecks);}catch(_){say('بازیابی کامل نشد و بازگرداندن خودکار ناموفق بود. داده‌های محلی را بررسی کنید و فایل پشتیبان را نگه دارید.');return;}}
         say('بازیابی انجام نشد؛ فضای ذخیره‌سازی و دسترسی مرورگر را بررسی کنید.');return;
       }
       window.dispatchEvent(new Event('yasbuildos-projects-updated'));
