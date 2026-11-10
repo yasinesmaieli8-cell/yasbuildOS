@@ -111,6 +111,34 @@
       if(!risks.length)riskList.textContent='مرحله‌ای با عبور ثبت‌شده از سقف وجود ندارد. ردیف‌های بدون قیمت در برآورد کامل لحاظ نمی‌شوند.';
     }catch(_){$('dashSummary').textContent='اطلاعات محلی خوانده نشد. دسترسی مرورگر به فضای ذخیره‌سازی را بررسی کنید.';}
   }
+  $('dashProjectsCsv').addEventListener('click',()=>{
+    try{
+      const {projects,checks}=readData();
+      const nonnegative=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
+      const cell=value=>{let text=String(value??'');if(typeof value!=='number'&&/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+      const rows=[['پروژه','شهر','وضعیت','بودجه تومان','ذخیره احتیاطی تومان','برآورد ردیف‌های قیمت‌دار تومان','تعداد ردیف بدون قیمت','پرداخت‌شده تومان','تعهدات تومان','مانده برنامه‌ریزی ناقص در صورت نبود قیمت','مانده پس از پرداخت و تعهد و ذخیره تومان','تعداد فعالیت','فعالیت انجام‌شده']];
+      for(const p of projects){
+        if(!p||typeof p.id!=='string'||typeof p.name!=='string'||(p.budget!=null&&!nonnegative(p.budget)))throw Error('invalid project');
+        const data=checks[p.id]??{},items=data.items??[],reserve=data.reserve??0;
+        if(!Array.isArray(items)||!nonnegative(reserve))throw Error('invalid checklist');
+        let estimate=0,missing=0,spent=0,commit=0,done=0;
+        for(const item of items){
+          if(!item||!nonnegative(item.quantity)||!nonnegative(item.extra)||!nonnegative(item.paid)||(item.unitPrice!==null&&!nonnegative(item.unitPrice))||!['برآورد','پرداخت‌شده','متعهدشده'].includes(item.status)||typeof item.done!=='boolean')throw Error('invalid item');
+          if(item.unitPrice===null)missing++;else estimate+=item.quantity*item.unitPrice+item.extra;
+          if(item.status==='پرداخت‌شده')spent+=item.paid;
+          if(item.status==='متعهدشده')commit+=item.paid;
+          if(item.done)done++;
+        }
+        const safe=n=>Number.isFinite(n)&&Math.abs(n)<=Number.MAX_SAFE_INTEGER;
+        if(![estimate,spent,commit].every(safe))throw Error('unsafe amount');
+        const budget=p.budget??null,plan=budget===null?'':budget-reserve-estimate,balance=budget===null?'':budget-reserve-spent-commit;
+        if((plan!==''&&!safe(plan))||(balance!==''&&!safe(balance)))throw Error('unsafe balance');
+        rows.push([p.name,p.city||'',p.status||'',budget,reserve,estimate,missing,spent,commit,plan,balance,items.length,done]);
+      }
+      const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+      link.href=url;link.download='yasbuildos-project-finances.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(_){$('dashSummary').textContent='گزارش مالی ساخته نشد؛ داده‌های پروژه و چک‌لیست را بررسی کنید.';}
+  });
   $('dashDueCsv').addEventListener('click',()=>{
     try{
       const {projects,checks}=readData(),today=dateToday();

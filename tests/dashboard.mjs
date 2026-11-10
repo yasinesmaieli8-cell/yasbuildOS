@@ -21,3 +21,11 @@ assert.ok(el('dashStageRiskCount').textContent.includes('۱ مرحله'));assert
 dependencies.a.stageBudgets[0].amount=400;data['yasbuildos.checklist.v1']=JSON.stringify(dependencies);el('nav').handlers.click();assert.ok(el('dashStageRiskCount').textContent.includes('۰ مرحله'));assert.ok(el('dashStageRisks').textContent.includes('بدون قیمت'));
 dependencies.a.items.at(-2).paid=450;data['yasbuildos.checklist.v1']=JSON.stringify(dependencies);el('nav').handlers.click();assert.ok(el('dashStageRiskCount').textContent.includes('۱ مرحله'));
 console.log('PASS dashboard totals use saved project data');
+
+// The export covers every project and keeps unpriced estimates visibly incomplete.
+data['yasbuildos.projects.v1']=JSON.stringify([{id:'a',name:'=پروژه',budget:1000},{id:'b',name:'بدون بودجه',budget:null}]);
+data['yasbuildos.checklist.v1']=JSON.stringify({a:{reserve:100,items:[{quantity:2,unitPrice:100,extra:10,paid:50,status:'پرداخت‌شده',done:true},{quantity:1,unitPrice:null,extra:0,paid:150,status:'متعهدشده',done:false}]}});
+el('dashProjectsCsv').handlers.click();const financial=await exported.text();
+assert.ok(financial.includes(`"'=پروژه"`));assert.ok(financial.includes('"1000","100","210","1","50","150","690","700","2","1"'));
+assert.ok(financial.includes('"بدون بودجه","","","","0","0","0","0","0","","","0","0"'));
+const oldExport=exported;data['yasbuildos.checklist.v1']=JSON.stringify({a:{reserve:0,items:[{quantity:-1}]}});el('dashProjectsCsv').handlers.click();assert.equal(exported,oldExport);assert.ok(el('dashSummary').textContent.includes('ساخته نشد'));

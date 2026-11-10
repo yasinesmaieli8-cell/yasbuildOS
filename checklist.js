@@ -294,9 +294,15 @@
   $('checkTemplate').onclick=()=>{
     if(!selected)return;
     const current=state();
-    if(current.items.length&&!confirm('مراحل نمونه به ردیف‌های فعلی اضافه شوند؟'))return;
-    const items=stages.map(stage=>({id:crypto.randomUUID(),name:stage,stage,quantity:1,unit:'مرحله',unitPrice:null,extra:0,status:'برآورد',paid:0,source:'',date:'',done:false}));
-    if(save({...all,[selected]:{...current,items:[...current.items,...items]}})){msg('مراحل نمونه اضافه شدند؛ مقادیر و قیمت‌ها را متناسب با پروژه ویرایش کنید.');render();}
+    const choice=$('checkTemplateType').value||'stages';
+    const entries=choice==='stages'?stages.map(stage=>[stage,stage]):window.yasbuildosChecklistTemplates?.[choice];
+    if(!Array.isArray(entries)){msg('الگوی انتخاب‌شده در دسترس نیست؛ صفحه را دوباره بارگذاری کنید.');return;}
+    if(current.items.length+entries.length>10000){msg('تعداد ردیف‌ها از سقف ۱۰٬۰۰۰ بیشتر می‌شود؛ الگو اضافه نشد.');return;}
+    if(current.items.length&&!confirm(`${number(entries.length)} ردیف نمونه به ردیف‌های فعلی اضافه شوند؟`))return;
+    let items;
+    try{items=entries.map(([stage,name])=>({id:crypto.randomUUID(),name,stage,quantity:1,unit:choice==='stages'?'مرحله':'فعالیت',unitPrice:null,extra:0,status:'برآورد',paid:0,source:'',date:'',done:false}));}
+    catch(_){msg('ساخت شناسه ردیف‌ها ممکن نشد؛ اطلاعات تغییری نکرد.');return;}
+    if(save({...all,[selected]:{...current,items:[...current.items,...items]}})){msg('الگوی نمونه اضافه شد؛ فعالیت‌ها، مقادیر و قیمت‌ها را متناسب با پروژه بررسی و ویرایش کنید.');render();}
   };
   $('checkCsv').onclick=()=>{
     if(!selected)return;
