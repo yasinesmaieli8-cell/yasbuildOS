@@ -1,0 +1,21 @@
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const key='yasbuildos.projects.v1',project={id:'p1',name:'ساختمان',city:'تهران',type:'مسکونی',status:'در حال اجرا',area:100,budget:1000,createdAt:'2026-11-01T00:00:00Z',updatedAt:'2026-11-01T00:00:00Z'};
+const store={[key]:JSON.stringify([project])};
+const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v}};
+const elements={};
+function element(){return {value:'',children:[],handlers:{},classList:{toggle(){}},appendChild(x){this.children.push(x)},replaceChildren(){this.children=[]},setAttribute(){},addEventListener(k,fn){this.handlers[k]=fn},querySelector(){return {}},focus(){},reset(){},reportValidity(){return true}}}
+const get=id=>elements[id] ||= element();
+const document={getElementById:get,createElement:element};
+let amount=null;const window={handlers:{},addEventListener(k,fn){this.handlers[k]=fn},budgetInputs:{projectBudget:{set(v){amount=v},get(){return amount}}}};
+vm.runInNewContext(await readFile('projects.js','utf8'),{document,window,localStorage,Intl,confirm:()=>true});
+const edit=()=>get('projectList').children[0].children.at(-1).children[1].handlers.click();
+const submit=()=>get('projectForm').handlers.submit({preventDefault(){}});
+edit();get('projectName').value='تغییر من';
+store[key]=JSON.stringify([{...project,city:'اصفهان'}]);window.handlers.storage({key});assert.equal(get('projectName').value,'تغییر من');
+submit();assert.equal(JSON.parse(store[key])[0].city,'اصفهان');assert.ok(get('projectMessage').textContent.includes('بازنویسی'));
+get('projectReload').handlers.click();assert.equal(get('projectName').value,'تغییر من');submit();assert.equal(JSON.parse(store[key])[0].name,'ساختمان');assert.ok(get('projectMessage').textContent.includes('پس از شروع ویرایش تغییر کرده'));
+get('projectCancel').handlers.click();edit();get('projectName').value='نام جدید';
+const changed=JSON.parse(store[key]);changed.push({...project,id:'p2',name:'پروژه دوم'});store[key]=JSON.stringify(changed);window.handlers['yasbuildos-projects-updated']();assert.equal(get('projectName').value,'نام جدید');submit();assert.equal(JSON.parse(store[key])[0].name,'نام جدید');assert.equal(JSON.parse(store[key]).length,2);
+console.log('PASS stale project writes and edited project conflicts preserve form and data');

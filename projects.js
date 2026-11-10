@@ -6,7 +6,7 @@
   const message = byId('projectMessage');
   const list = byId('projectList');
   const count = byId('projectCount');
-  let editing = null;
+  let editing = null, editOriginal = null, lastRaw = null;
   let projects;
 
   function setMessage(text, isError = false) {
@@ -17,10 +17,10 @@
   function read() {
     try {
       const stored = localStorage.getItem(key);
-      if (stored === null) return [];
+      if (stored === null) { lastRaw = null; return []; }
       const parsed = JSON.parse(stored);
       if (!Array.isArray(parsed) || parsed.some(item => !item || typeof item.id !== 'string' || typeof item.name !== 'string')) throw new Error('invalid');
-      return parsed;
+      lastRaw = stored; return parsed;
     } catch (_) {
       setMessage('داده‌های پروژه خوانده نشدند یا دسترسی به ذخیره‌سازی بسته است. برای جلوگیری از بازنویسی داده، ثبت پروژه غیرفعال است.', true);
       form.querySelector('button[type="submit"]').disabled = true;
@@ -30,7 +30,11 @@
 
   function save(next) {
     try {
-      localStorage.setItem(key, JSON.stringify(next));
+      if (localStorage.getItem(key) !== lastRaw) {
+        setMessage('فهرست پروژه‌ها در زبانه دیگری تغییر کرده است؛ ابتدا فهرست را به‌روزرسانی کنید تا داده‌ها بازنویسی نشوند.', true);
+        return false;
+      }
+      const raw=JSON.stringify(next);localStorage.setItem(key,raw);lastRaw=raw;
       projects = next;
       return true;
     } catch (_) {
@@ -80,7 +84,7 @@
       edit.type = 'button';
       edit.setAttribute('aria-label', 'ویرایش پروژه ' + project.name);
       edit.addEventListener('click', () => {
-        editing = project.id;
+        editing = project.id; editOriginal = JSON.stringify(project);
         byId('projectName').value = project.name;
         byId('projectCity').value = project.city || '';
         byId('projectType').value = project.type || '';
@@ -109,7 +113,7 @@
 
   function reset() {
     form.reset();
-    editing = null;
+    editing = null; editOriginal = null;
     byId('projectSubmit').textContent = 'ثبت پروژه';
     byId('projectCancel').hidden = true;
   }
@@ -118,23 +122,18 @@
   if (projects === null) return;
   byId('projectSearch').addEventListener('input',render);
   byId('projectStatusFilter').addEventListener('change',render);
+  function refreshList() {
+    const updated=read();if(updated===null)return;
+    projects=updated;render();
+    setMessage(editing?'فهرست به‌روزرسانی شد؛ اطلاعات فرم ویرایش حفظ شده‌اند.':'فهرست پروژه‌ها به‌روزرسانی شد.');
+  }
+  byId('projectReload').addEventListener('click',refreshList);
   render();
   window.addEventListener('storage', event => {
     if (event.key !== key && event.key !== null) return;
-    const updated = read();
-    if (updated === null) return;
-    projects = updated;
-    if (editing) reset();
-    render();
-    setMessage('فهرست پروژه‌ها از تغییرات پنجره دیگر به‌روزرسانی شد.');
+    setMessage('فهرست پروژه‌ها در زبانه دیگری تغییر کرد؛ پیش از ادامه آن را به‌روزرسانی کنید.', true);
   });
-  window.addEventListener('yasbuildos-projects-updated', () => {
-    const updated = read();
-    if (updated === null) return;
-    projects = updated;
-    if (editing) reset();
-    render();
-  });
+  window.addEventListener('yasbuildos-projects-updated', refreshList);
   byId('projectCancel').addEventListener('click', () => { reset(); setMessage('ویرایش لغو شد.'); });
   form.addEventListener('submit', event => {
     event.preventDefault();
@@ -150,6 +149,7 @@
     }
     const existing = editing ? projects.find(project => project.id === editing) : null;
     if (editing && !existing) { setMessage('پروژه برای ویرایش پیدا نشد؛ صفحه را دوباره باز کنید.', true); return; }
+    if (existing && JSON.stringify(existing) !== editOriginal) { setMessage('این پروژه پس از شروع ویرایش تغییر کرده است؛ متن خود را نگه دارید، ویرایش را لغو کنید و پروژه را دوباره باز کنید.', true); return; }
     if (!existing && (!window.crypto || typeof crypto.randomUUID !== 'function')) {
       setMessage('ساخت شناسه پروژه در این مرورگر در دسترس نیست؛ لطفاً برنامه را در یک مرورگر به‌روز و اتصال امن باز کنید.', true);
       return;
