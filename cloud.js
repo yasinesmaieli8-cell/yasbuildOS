@@ -88,6 +88,7 @@
     requestNumber++;
     el('cloudSignedOut').hidden = Boolean(user);
     el('cloudSignedIn').hidden = !user || profileRequired;
+    el('phoneSetPassword').hidden = !user?.phone;
     el('cloudEmailDisplay').textContent = user ? (user.email || user.phone || '') : '';
     el('cloudUserId').textContent = user ? user.id : '';
     el('cloudInvitations').replaceChildren();
@@ -142,6 +143,31 @@
     el('cloudPassword').type=visible?'text':'password';el('cloudPasswordConfirm').type=visible?'text':'password';
     el('cloudPasswordToggle').textContent=visible?'پنهان کردن گذرواژه':'نمایش گذرواژه';
     el('cloudPasswordToggle').setAttribute('aria-pressed',String(visible));
+  });
+  el('phonePasswordLogin').addEventListener('click', async () => {
+    if (authPending) return;
+    const phone = window.YasPhoneAuth?.normalizePhone(el('phonePasswordNumber').value), password = el('phonePasswordValue').value;
+    if (!phone || !password) { el('phonePasswordMessage').textContent = 'شماره موبایل معتبر و گذرواژه را وارد کنید.'; return; }
+    authPending = true; el('phonePasswordLogin').disabled = true;
+    try {
+      const {error} = await client.auth.signInWithPassword({phone,password});
+      el('phonePasswordValue').value = '';
+      el('phonePasswordMessage').textContent = error ? 'شماره یا گذرواژه درست نیست، یا امکان ورود موقتاً محدود شده است.' : 'ورود انجام شد.';
+    } catch (_) { el('phonePasswordMessage').textContent = 'ارتباط برقرار نشد؛ دوباره تلاش کنید.'; }
+    finally { authPending = false; el('phonePasswordLogin').disabled = false; }
+  });
+  el('phoneSetPassword').addEventListener('submit', async event => {
+    event.preventDefault(); if (passwordChangePending || !currentUser || profileRequired) return;
+    const password=el('phoneNewPassword').value, confirmation=el('phoneNewPasswordConfirm').value;
+    if (password.length < 8 || password !== confirmation) { el('phoneSetPasswordMessage').textContent = 'گذرواژه باید حداقل ۸ نویسه و با تکرار آن یکسان باشد.'; return; }
+    const userId=currentUser.id, revision=authRevision; passwordChangePending=true; el('phoneSetPasswordButton').disabled=true;
+    try {
+      const {error}=await client.auth.updateUser({password});
+      if(currentUser?.id!==userId || revision!==authRevision) return;
+      if(error) { el('phoneSetPasswordMessage').textContent='ثبت گذرواژه انجام نشد؛ دوباره تلاش کنید.'; return; }
+      el('phoneNewPassword').value='';el('phoneNewPasswordConfirm').value='';el('phoneSetPasswordMessage').textContent='گذرواژه ثبت شد.';
+    } catch (_) { if(currentUser?.id===userId && revision===authRevision) el('phoneSetPasswordMessage').textContent='ارتباط برقرار نشد؛ دوباره تلاش کنید.'; }
+    finally { passwordChangePending=false;el('phoneSetPasswordButton').disabled=false; }
   });
   el('profileLogout').addEventListener('click', () => el('cloudLogout').click());
   el('cloudProfileForm').addEventListener('submit', async event => {
