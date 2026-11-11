@@ -12,7 +12,7 @@
   let currentUser = null;
   let profileRequired = false;
   const needsProfile = user => Boolean(user?.phone && !(user.user_metadata?.first_name && user.user_metadata?.last_name && user.user_metadata?.contact_email));
-  document.querySelectorAll('.nav button').forEach(button => button.addEventListener('click', event => { if (profileRequired && button.dataset.tab !== 'auth') { event.stopImmediatePropagation(); el('profileMessage').textContent = 'ابتدا اطلاعات حساب را تکمیل کنید.'; } }, true));
+  document.querySelector('.nav').addEventListener('click', event => { const button = event.target.closest('button[data-tab]'); if (profileRequired && button && button.dataset.tab !== 'auth') { event.preventDefault(); event.stopImmediatePropagation(); el('profileMessage').textContent = 'ابتدا اطلاعات حساب را تکمیل کنید.'; } }, true);
   let editingId = null;
   let requestNumber = 0;
   let authPending = false;
@@ -26,21 +26,21 @@
     el('cloudPasswordToggle').textContent='نمایش گذرواژه';el('cloudPasswordToggle').setAttribute('aria-pressed','false');
   }
   window.yasCloud = {
-    isSignedIn() { return Boolean(currentUser); },
+    isSignedIn() { return Boolean(currentUser && !profileRequired); },
     async courseEnrollment(courseId) {
-      const userId=currentUser?.id,revision=authRevision;if(!userId)throw Error('login');
+      const userId=currentUser?.id,revision=authRevision;if(!userId || profileRequired)throw Error('login');
       const {data,error}=await client.from('yb_course_enrollments').select('course_id').eq('user_id',userId).eq('course_id',courseId).maybeSingle();
       if(error||currentUser?.id!==userId||authRevision!==revision)throw error||Error('session changed');
       return Boolean(data);
     },
     async enrollCourse(courseId) {
-      const userId=currentUser?.id,revision=authRevision;if(!userId)throw Error('login');
+      const userId=currentUser?.id,revision=authRevision;if(!userId || profileRequired)throw Error('login');
       const {error}=await client.from('yb_course_enrollments').upsert({user_id:userId,course_id:courseId},{onConflict:'user_id,course_id',ignoreDuplicates:true});
       if(error||currentUser?.id!==userId||authRevision!==revision)throw error||Error('session changed');
       return window.yasCloud.courseEnrollment(courseId);
     },
     async projects() {
-      if (!currentUser) throw new Error('login');
+      if (!currentUser || profileRequired) throw new Error('login');
       const userId = currentUser.id, revision = authRevision;
       const { data, error } = await client.from('yb_projects').select('id,name,owner_id').order('created_at', { ascending: false });
       if (error || currentUser?.id !== userId || authRevision!==revision) throw error || new Error('session changed');
@@ -50,7 +50,7 @@
       return data.filter(p => p.owner_id === userId || editable.has(p.id));
     },
     async saveCalculation(projectId, record) {
-      if (!currentUser) throw new Error('login');
+      if (!currentUser || profileRequired) throw new Error('login');
       const userId = currentUser.id, revision=authRevision;
       const project = await client.from('yb_projects').select('owner_id').eq('id', projectId).single();
       if (project.error || !project.data || currentUser?.id !== userId || authRevision!==revision) throw project.error || new Error('project unavailable');
