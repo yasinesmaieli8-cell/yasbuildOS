@@ -17,7 +17,7 @@
   function normalize(value) {
     return String(value || '').normalize('NFKC').toLowerCase()
       .replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[ً-ٰٟـ]/g,'')
-      .replace(/[‌‍s]+/g,' ').trim();
+      .replace(/[‌‍\s]+/g,' ').trim();
   }
   function matches(name, category, query) {
     const words = normalize(query).split(' ').filter(Boolean);

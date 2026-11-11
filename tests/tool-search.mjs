@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const context = {}; vm.runInNewContext(fs.readFileSync(new URL('../tool-search.js', import.meta.url), 'utf8'), context);
 const {matches} = context.YasToolSearch;
+assert.equal(context.YasToolSearch.normalize('  Steel\tsection  '), 'steel section');
+assert.ok(matches('Steel section','steel','steel section'));
 assert.ok(matches('طراحی هوشمند راه‌پله','معماری و نازک‌کاری','راه پله'));
 assert.ok(matches('طراحی هوشمند راه‌پله','معماری و نازک‌کاری','پلکان'));
 assert.ok(matches('مقدار کاشی و سرامیک','معماری و نازک‌کاری','كاشي'));
