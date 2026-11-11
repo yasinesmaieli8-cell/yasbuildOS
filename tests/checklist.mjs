@@ -105,3 +105,8 @@ const changedElsewhere=JSON.parse(store['yasbuildos.checklist.v1']);changedElsew
 el('checkName').value='ویرایش من';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].name,'ویرایش زبانه دیگر');assert.ok(el('checkMessage').textContent.includes('بازنویسی'));
 el('checkReload').handlers.click();el('checkForm').handlers.submit({preventDefault(){}});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].name,'ویرایش زبانه دیگر');assert.ok(el('checkMessage').textContent.includes('پس از شروع ویرایش تغییر کرده'));
 console.log('PASS manual price, estimate, paid amount, reserve, balance, persistence and completion');
+
+// Persian and Arabic letter forms, half-spaces and case should match in search.
+const searchData=JSON.parse(store['yasbuildos.checklist.v1']);searchData.p1.items[0].notes='کاشی‌کاری Kitchen';store['yasbuildos.checklist.v1']=JSON.stringify(searchData);el('checkReload').handlers.click();
+el('checkSearch').value='كاشي كاري';el('checkSearch').oninput();assert.ok(el('checkItems').children.some(row=>row.children.some(child=>child.textContent.includes('کاشی‌کاری'))));
+el('checkSearch').value='kitchen';el('checkSearch').oninput();assert.ok(el('checkItems').children.some(row=>row.children.some(child=>child.textContent.includes('Kitchen'))));

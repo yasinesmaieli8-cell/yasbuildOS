@@ -73,7 +73,8 @@
     if(reserveProject!==selected){window.budgetInputs.checkReserve.set(s.reserve || null);reserveProject=selected;}
     let estimate=0, pricedBase=0, spent=0, committed=0, missing=0, done=0, shown=0, stale=0, undated=0;
     const byStage=new Map(), byCostType=new Map(), visibleRows=[];
-    const search=$('checkSearch').value.trim(), filter=$('checkFilter').value, costFilter=$('checkCostFilter').value, stageFilter=items.some(item=>item.stage===$('checkStageFilter').value)?$('checkStageFilter').value:'';
+    const normalizeSearch=value=>String(value||'').normalize('NFKC').toLowerCase().replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[ً-ٰٟـ]/g,'').replace(/[‌‍\s]+/g,' ').trim();
+    const search=normalizeSearch($('checkSearch').value), filter=$('checkFilter').value, costFilter=$('checkCostFilter').value, stageFilter=items.some(item=>item.stage===$('checkStageFilter').value)?$('checkStageFilter').value:'';
     const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
     const stageSelect=$('checkStageFilter'); stageSelect.replaceChildren();
     const allStages=document.createElement('option'); allStages.value=''; allStages.textContent='همه مراحل'; stageSelect.appendChild(allStages);
@@ -101,7 +102,7 @@
       if(item.status==='پرداخت‌شده')typeGroup.spent+=item.paid;
       if(item.status==='متعهدشده')typeGroup.committed+=item.paid;
       byCostType.set(costType,typeGroup);
-      if(search&&!(`${item.name} ${item.stage} ${item.unit} ${item.assignee||''} ${item.notes||''}`).includes(search))continue;
+      if(search&&!normalizeSearch(`${item.name} ${item.stage} ${item.unit} ${item.assignee||''} ${item.notes||''}`).includes(search))continue;
       if(stageFilter && item.stage!==stageFilter)continue;
       if(costFilter && costType!==costFilter)continue;
       const prerequisite=item.dependencyId&&byId.get(item.dependencyId), blocked=!!item.dependencyId&&!item.done&&(!prerequisite||!prerequisite.done);
