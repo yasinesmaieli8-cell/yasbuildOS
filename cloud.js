@@ -10,6 +10,9 @@
   window.YasPhoneAuth?.mount(client, el('cloudSignedOut'), true);
   const redirect = location.origin + location.pathname;
   let currentUser = null;
+  let profileRequired = false;
+  const needsProfile = user => Boolean(user?.phone && !(user.user_metadata?.first_name && user.user_metadata?.last_name && user.user_metadata?.contact_email));
+  document.querySelectorAll('.nav button').forEach(button => button.addEventListener('click', event => { if (profileRequired && button.dataset.tab !== 'auth') { event.stopImmediatePropagation(); el('profileMessage').textContent = 'ابتدا اطلاعات حساب را تکمیل کنید.'; } }, true));
   let editingId = null;
   let requestNumber = 0;
   let authPending = false;
@@ -68,15 +71,23 @@
     el('cloudProjectCancel').hidden = true;
   }
   function renderUser(user) {
-    if (currentUser && user && currentUser.id===user.id) {
+    if (currentUser && user && currentUser.id===user.id && profileRequired === needsProfile(user)) {
       currentUser=user;el('cloudEmailDisplay').textContent=user.email||user.phone||'';el('topname').textContent=user.email||user.phone||'کاربر';
       return;
     }
     if ((currentUser?.id || null) !== (user?.id || null)) authRevision++;
     currentUser = user;
+    profileRequired = needsProfile(user);
+    el('cloudProfileForm').hidden = !profileRequired;
+    if (profileRequired) {
+      el('profileFirst').value = user.user_metadata?.first_name || '';
+      el('profileLast').value = user.user_metadata?.last_name || '';
+      el('profileEmail').value = user.user_metadata?.contact_email || '';
+      document.querySelector('[data-tab="auth"]').click();
+    }
     requestNumber++;
     el('cloudSignedOut').hidden = Boolean(user);
-    el('cloudSignedIn').hidden = !user;
+    el('cloudSignedIn').hidden = !user || profileRequired;
     el('cloudEmailDisplay').textContent = user ? (user.email || user.phone || '') : '';
     el('cloudUserId').textContent = user ? user.id : '';
     el('cloudInvitations').replaceChildren();
@@ -90,7 +101,7 @@
       el(prefix + 'CloudMessage').textContent = '';
     }
     resetProject();
-    if (user) loadProjects();
+    if (user && !profileRequired) loadProjects();
     window.dispatchEvent?.(new Event('yasbuildos-auth-changed'));
   }
   async function authAction(action) {
@@ -131,6 +142,23 @@
     el('cloudPassword').type=visible?'text':'password';el('cloudPasswordConfirm').type=visible?'text':'password';
     el('cloudPasswordToggle').textContent=visible?'پنهان کردن گذرواژه':'نمایش گذرواژه';
     el('cloudPasswordToggle').setAttribute('aria-pressed',String(visible));
+  });
+  el('profileLogout').addEventListener('click', () => el('cloudLogout').click());
+  el('cloudProfileForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = el('cloudProfileForm'); if (!form.reportValidity()) return;
+    const first = el('profileFirst').value.trim(), last = el('profileLast').value.trim(), email = el('profileEmail').value.trim();
+    if (!first || !last) { el('profileMessage').textContent = 'نام و نام خانوادگی را وارد کنید.'; return; }
+    const userId = currentUser?.id; if (!userId || !profileRequired) return;
+    el('profileSave').disabled = true; el('profileMessage').textContent = 'در حال ثبت اطلاعات…';
+    try {
+      const {data, error} = await client.auth.updateUser({data:{first_name:first,last_name:last,contact_email:email}});
+      if (error || !data?.user || data.user.id !== userId || currentUser?.id !== userId) throw new Error('save failed');
+      renderUser(data.user);
+      el('profileMessage').textContent = '';
+      document.querySelector('[data-tab="tools"]').click();
+    } catch (_) { el('profileMessage').textContent = 'ثبت اطلاعات انجام نشد؛ اتصال را بررسی و دوباره تلاش کنید.'; }
+    finally { el('profileSave').disabled = false; }
   });
   el('cloudLogout').addEventListener('click', async () => {
     if(logoutPending)return;
