@@ -398,7 +398,7 @@
   client.auth.onAuthStateChange((event, session) => {
     queueMicrotask(() => {
       renderUser(session?.user || null);
-      if (event === 'SIGNED_OUT') { el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPassword').value = ''; el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true; hidePasswords(); }
+      if (event === 'SIGNED_OUT') { el('phonePasswordValue').value = ''; el('phoneNewPassword').value = ''; el('phoneNewPasswordConfirm').value = ''; el('phoneSetPasswordMessage').textContent = ''; el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPassword').value = ''; el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true; hidePasswords(); }
       if (event === 'PASSWORD_RECOVERY') { document.querySelector('[data-tab="auth"]').click(); el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد و تکرار کنید.'); }
     });
   });

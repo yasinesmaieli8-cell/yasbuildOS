@@ -42,9 +42,10 @@
       if (!phone) { message.textContent = 'شماره موبایل معتبر ایران وارد کنید.'; return; }
       sentPhone = null;
       const {error} = await client.auth.signInWithOtp({phone});
-      if (normalizePhone(phoneInput.value) !== phone) return;
-      if (error) { message.textContent = 'ارسال کد انجام نشد؛ شماره و وضعیت سرویس را بررسی کنید.'; return; }
-      sentPhone = phone; retryAfter = Date.now() + 120000; try { localStorage.setItem(timerKey, String(retryAfter)); } catch (_) {} updateTimer(); message.textContent = 'درخواست ثبت شد؛ دریافت پیامک ممکن است کمی زمان ببرد. اگر کد نرسید دوباره تلاش کنید.';
+      if (error) { if (normalizePhone(phoneInput.value) === phone) message.textContent = 'ارسال کد انجام نشد؛ شماره و وضعیت سرویس را بررسی کنید.'; return; }
+      retryAfter = Date.now() + 120000; try { localStorage.setItem(timerKey, String(retryAfter)); } catch (_) {} updateTimer();
+      if (normalizePhone(phoneInput.value) !== phone) { message.textContent = 'کد به شماره قبلی ارسال شد. برای شماره جدید پس از پایان زمان دوباره درخواست کنید.'; return; }
+      sentPhone = phone; message.textContent = 'درخواست ثبت شد؛ دریافت پیامک ممکن است کمی زمان ببرد. اگر کد نرسید دوباره تلاش کنید.';
     }));
     verify.addEventListener('click', () => run(async () => {
       const phone = normalizePhone(phoneInput.value), token = normalizeCode(codeInput.value);
