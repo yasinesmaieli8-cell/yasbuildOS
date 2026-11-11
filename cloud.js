@@ -7,6 +7,7 @@
   const publicKey = 'sb_publishable_VVozb50ZJ4v0wQ8-PVF7YA_kwgY5uUe';
   if (!window.supabase) { el('cloudActions').disabled = true; message('سرویس ورود بارگذاری نشد؛ اتصال اینترنت را بررسی و صفحه را دوباره باز کنید.'); return; }
   const client = window.supabase.createClient(url, publicKey);
+  window.YasPhoneAuth?.mount(client, el('cloudSignedOut'), false);
   const redirect = location.origin + location.pathname;
   let currentUser = null;
   let editingId = null;
@@ -68,7 +69,7 @@
   }
   function renderUser(user) {
     if (currentUser && user && currentUser.id===user.id) {
-      currentUser=user;el('cloudEmailDisplay').textContent=user.email||'';el('topname').textContent=user.email||'کاربر';
+      currentUser=user;el('cloudEmailDisplay').textContent=user.email||user.phone||'';el('topname').textContent=user.email||user.phone||'کاربر';
       return;
     }
     if ((currentUser?.id || null) !== (user?.id || null)) authRevision++;
@@ -76,10 +77,10 @@
     requestNumber++;
     el('cloudSignedOut').hidden = Boolean(user);
     el('cloudSignedIn').hidden = !user;
-    el('cloudEmailDisplay').textContent = user ? user.email : '';
+    el('cloudEmailDisplay').textContent = user ? (user.email || user.phone || '') : '';
     el('cloudUserId').textContent = user ? user.id : '';
     el('cloudInvitations').replaceChildren();
-    el('topname').textContent = user ? (user.email || 'کاربر') : 'مهمان';
+    el('topname').textContent = user ? (user.email || user.phone || 'کاربر') : 'مهمان';
     el('toprole').textContent = user ? 'حساب کاربری' : 'بدون نشست';
     el('cloudProjectList').replaceChildren();
     for (const prefix of ['runner', 'stair']) {

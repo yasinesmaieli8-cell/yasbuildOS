@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const context = {};
+vm.runInNewContext(fs.readFileSync(new URL('../phone-auth.js', import.meta.url), 'utf8'), context);
+const {normalizePhone, normalizeCode} = context.YasPhoneAuth;
+assert.equal(normalizePhone('۰۹۱۲ ۳۴۵ ۶۷۸۹'), '+989123456789');
+assert.equal(normalizePhone('+98 912 345 6789'), '+989123456789');
+assert.equal(normalizePhone('123'), null);
+assert.equal(normalizeCode('۱۲۳۴۵۶'), '123456');
+assert.equal(normalizeCode('12345'), null);
