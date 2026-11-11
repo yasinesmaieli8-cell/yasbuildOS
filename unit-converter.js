@@ -24,7 +24,7 @@ function openUnitConverter(){
   $('runnerTitle').textContent='تبدیل واحدهای مهندسی';
   $('runnerSub').textContent='کمیت، واحد مبدأ و مقصد را انتخاب کنید.';
   $('runnerStatus').textContent='تبدیل واحد';
-  fields.innerHTML='<div class="rf"><label for="unitGroup">کمیت</label><select id="unitGroup"></select></div><div class="rf"><label for="unitValue">مقدار ورودی</label><input id="unitValue" type="number" step="any" value="1"></div><div class="rf"><label for="unitFrom">واحد مبدأ</label><select id="unitFrom"></select></div><div class="rf"><label for="unitTo">واحد مقصد</label><select id="unitTo"></select></div>';
+  fields.innerHTML='<div class="rf"><label for="unitGroup">کمیت</label><select id="unitGroup"></select></div><div class="rf"><label for="unitValue">مقدار ورودی</label><input id="unitValue" type="number" step="any" value="1"></div><div class="rf"><label for="unitFrom">واحد مبدأ</label><select id="unitFrom"></select></div><div class="rf"><label for="unitTo">واحد مقصد</label><select id="unitTo"></select></div><div class="rf"><button type="button" class="btn secondary sm" id="unitSwap">جابه‌جایی واحد مبدأ و مقصد</button></div>';
   $('runnerNote').textContent='مبدأ و مقصد باید از یک کمیت باشند. فوت و اینچ از نوع بین‌المللی‌اند. جرم و نیرو یکسان نیستند؛ برای کیلوگرم‌نیرو شتاب گرانش استاندارد به کار رفته است. مقادیر نمایش‌داده‌شده برای خوانایی گرد می‌شوند. منبع ضرایب: راهنمای NIST SP 811، پیوست B.';
   $('runnerExample').style.display='none';
   showToolDiagram($('runnerSvg'),'تبدیل واحدهای مهندسی');
@@ -48,6 +48,7 @@ function openUnitConverter(){
   function setUnits(){const data=unitGroups[group.value],names=Object.keys(data.units);from.innerHTML=to.innerHTML=names.map(name=>`<option>${name}</option>`).join('');to.selectedIndex=Math.min(1,names.length-1);input.min=data.nonnegative?'0':'';update()}
   function download(format){if(!last){$('runnerCards').textContent='ابتدا مقدار معتبری وارد کنید.';return}const data=format==='json'?JSON.stringify(last,null,2):'\ufeff'+Object.entries(last).map(row=>row.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([data],{type:format==='json'?'application/json;charset=utf-8':'text/csv;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download='yasbuildos-unit-conversion.'+format;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
   group.onchange=setUnits;from.onchange=to.onchange=input.oninput=update;
+  $('unitSwap').onclick=()=>{const previous=from.value;from.value=to.value;to.value=previous;update()};
   $('exportCsv').onclick=()=>download('csv');$('exportJson').onclick=()=>download('json');setUnits();
   back.classList.add('open');document.body.style.overflow='hidden';
   $('runnerClose').onclick=()=>{back.classList.remove('open');document.body.style.overflow=''};

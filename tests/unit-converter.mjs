@@ -28,6 +28,10 @@ const elements={};
 function element(id){return elements[id] ||= {value:id==='unitValue'?'1':'',validity:{valid:true},style:{},classList:{add(){},remove(){},contains(){return true}},focus(){},set innerHTML(html){this._html=html;const options=[...html.matchAll(/<option>(.*?)<\/option>/g)].map(m=>m[1]);if(options.length){this.options=options;this.value=options[0]}},get innerHTML(){return this._html},set selectedIndex(index){this.value=this.options[index]}};}
 const ui=vm.createContext({$:element,window:{},document:{body:{style:{}},querySelector:()=>({style:{}})},showToolDiagram(){},Intl});
 vm.runInContext(await readFile('unit-converter.js','utf8'),ui);vm.runInContext('openUnitConverter()',ui);
+const oldFrom=element('unitFrom').value,oldTo=element('unitTo').value;
+element('unitValue').value='2';element('unitValue').oninput();
+element('unitSwap').onclick();assert.equal(element('unitFrom').value,oldTo);assert.equal(element('unitTo').value,oldFrom);assert.equal(ui.window.ybCurrentResult.inputs.مقدار,2);assert.equal(ui.window.ybCurrentResult.outputs.نتیجه,20);
+element('unitSwap').onclick();assert.equal(element('unitFrom').value,oldFrom);assert.equal(element('unitTo').value,oldTo);assert.equal(ui.window.ybCurrentResult.outputs.نتیجه,0.2);
 element('unitValue').value='1e-999';element('unitValue').oninput();assert.ok(element('runnerCards').textContent.includes('بیش از حد کوچک'));
 assert.equal(ui.window.ybCurrentResult,null);
 console.log('PASS independent unit conversions, invalid units and floating-point boundaries');
