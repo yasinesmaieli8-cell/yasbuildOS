@@ -149,11 +149,15 @@
     const phone = window.YasPhoneAuth?.normalizePhone(el('phonePasswordNumber').value), password = el('phonePasswordValue').value;
     if (!phone || !password) { el('phonePasswordMessage').textContent = 'شماره موبایل معتبر و گذرواژه را وارد کنید.'; return; }
     authPending = true; el('phonePasswordLogin').disabled = true;
+    const revision=authRevision;
+    const unchanged=()=>window.YasPhoneAuth?.normalizePhone(el('phonePasswordNumber').value)===phone && el('phonePasswordValue').value===password;
     try {
-      const {error} = await client.auth.signInWithPassword({phone,password});
+      const {data,error} = await client.auth.signInWithPassword({phone,password});
+      const returnedUser=data?.session?.user?.id;
+      if (!unchanged() || (revision!==authRevision && !(returnedUser && currentUser?.id===returnedUser))) return;
       el('phonePasswordValue').value = '';
       el('phonePasswordMessage').textContent = error ? 'شماره یا گذرواژه درست نیست، یا امکان ورود موقتاً محدود شده است.' : 'ورود انجام شد.';
-    } catch (_) { el('phonePasswordMessage').textContent = 'ارتباط برقرار نشد؛ دوباره تلاش کنید.'; }
+    } catch (_) { if (revision===authRevision && unchanged()) el('phonePasswordMessage').textContent = 'ارتباط برقرار نشد؛ دوباره تلاش کنید.'; }
     finally { authPending = false; el('phonePasswordLogin').disabled = false; }
   });
   el('phoneSetPassword').addEventListener('submit', async event => {
@@ -165,7 +169,9 @@
       const {error}=await client.auth.updateUser({password});
       if(currentUser?.id!==userId || revision!==authRevision) return;
       if(error) { el('phoneSetPasswordMessage').textContent='ثبت گذرواژه انجام نشد؛ دوباره تلاش کنید.'; return; }
-      el('phoneNewPassword').value='';el('phoneNewPasswordConfirm').value='';el('phoneSetPasswordMessage').textContent='گذرواژه ثبت شد.';
+      const edited=el('phoneNewPassword').value!==password || el('phoneNewPasswordConfirm').value!==confirmation;
+      if(!edited){el('phoneNewPassword').value='';el('phoneNewPasswordConfirm').value='';}
+      el('phoneSetPasswordMessage').textContent=edited?'گذرواژه ارسالی ثبت شد؛ مقادیر تازه فرم هنوز ثبت نشده‌اند.':'گذرواژه ثبت شد.';
     } catch (_) { if(currentUser?.id===userId && revision===authRevision) el('phoneSetPasswordMessage').textContent='ارتباط برقرار نشد؛ دوباره تلاش کنید.'; }
     finally { passwordChangePending=false;el('phoneSetPasswordButton').disabled=false; }
   });
