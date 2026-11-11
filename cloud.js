@@ -7,7 +7,7 @@
   const publicKey = 'sb_publishable_VVozb50ZJ4v0wQ8-PVF7YA_kwgY5uUe';
   if (!window.supabase) { el('cloudActions').disabled = true; message('سرویس ورود بارگذاری نشد؛ اتصال اینترنت را بررسی و صفحه را دوباره باز کنید.'); return; }
   const client = window.supabase.createClient(url, publicKey);
-  window.YasPhoneAuth?.mount(client, el('cloudSignedOut'), false);
+  window.YasPhoneAuth?.mount(client, el('cloudSignedOut'), true);
   const redirect = location.origin + location.pathname;
   let currentUser = null;
   let editingId = null;

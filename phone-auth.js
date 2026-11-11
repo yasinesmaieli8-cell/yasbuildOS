@@ -1,4 +1,4 @@
-// Kept disabled until the SMS hook has passed end-to-end verification.
+// SMS sign-in uses the verified Supabase hook; delivery may be delayed.
 (() => {
   'use strict';
   function normalizePhone(input) {
@@ -14,7 +14,7 @@
     if (!enabled) return;
     const section = document.createElement('section');
     section.className = 'project-item';
-    section.innerHTML = '<h3>ورود یا ثبت‌نام با شماره موبایل</h3><p class="notice">کد یک‌بارمصرف به شماره شما پیامک می‌شود.</p><div class="field"><label for="otpPhone">شماره موبایل</label><input id="otpPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="۰۹۱۲۱۲۳۴۵۶۷"></div><button type="button" class="btn secondary" id="otpSend">ارسال کد</button><div class="field"><label for="otpCode">کد پیامکی</label><input id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div><button type="button" class="btn" id="otpVerify">تأیید و ورود</button><p id="otpMessage" class="project-message" role="status" aria-live="polite"></p>';
+    section.innerHTML = '<h3>ورود یا ثبت‌نام با شماره موبایل</h3><p class="notice">کد یک‌بارمصرف به شماره شما پیامک می‌شود. اگر حساب ندارید، پس از تأیید کد ساخته می‌شود.</p><div class="field"><label for="otpPhone">شماره موبایل</label><input id="otpPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="۰۹۱۲۱۲۳۴۵۶۷"></div><button type="button" class="btn secondary" id="otpSend">ارسال کد</button><div class="field"><label for="otpCode">کد پیامکی</label><input id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div><button type="button" class="btn" id="otpVerify">تأیید و ورود</button><p id="otpMessage" class="project-message" role="status" aria-live="polite"></p>';
     host.prepend(section);
     const phoneInput = section.querySelector('#otpPhone'), codeInput = section.querySelector('#otpCode');
     const send = section.querySelector('#otpSend'), verify = section.querySelector('#otpVerify'), message = section.querySelector('#otpMessage');
