@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const context = {}; vm.runInNewContext(fs.readFileSync(new URL('../tool-search.js', import.meta.url), 'utf8'), context);
+const {matches} = context.YasToolSearch;
+assert.ok(matches('طراحی هوشمند راه‌پله','معماری و نازک‌کاری','راه پله'));
+assert.ok(matches('طراحی هوشمند راه‌پله','معماری و نازک‌کاری','پلکان'));
+assert.ok(matches('مقدار کاشی و سرامیک','معماری و نازک‌کاری','كاشي'));
+assert.ok(matches('حجم خاک‌برداری','پی و خاک','گودبرداری'));
+assert.ok(matches('نشست پی سطحی','پی و خاک','فونداسیون'));
+assert.ok(matches('برنامه‌ریزی زمان‌بندی','برآورد و اجرا','زمانبندی'));
+assert.ok(matches('طرح اختلاط بتن','بتن',''));
+assert.equal(matches('طرح اختلاط بتن','بتن','سرامیک'), false);
+console.log('PASS Persian tool search, alternate spellings, aliases and unmatched terms');
