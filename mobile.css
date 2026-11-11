@@ -1,0 +1,32 @@
+/* Phone layout: keep navigation, forms and calculation results usable on narrow screens. */
+@media (max-width: 720px) {
+  .side { padding: 10px 12px 8px; }
+  .brand { font-size: 16px; }
+  .logo { width: 40px; height: 40px; }
+  .nav { scroll-snap-type: x proximity; overscroll-behavior-x: contain; padding-bottom: 4px; }
+  .nav button { flex: 0 0 auto; min-height: 44px; scroll-snap-align: start; }
+  .top { gap: 8px; }
+  .topright { flex-shrink: 0; }
+  .userchip { display: none; }
+  #quickAuth { min-height: 40px; white-space: nowrap; font-size: 12px; }
+  .iconbtn { width: 42px; height: 42px; flex-shrink: 0; }
+  .welcome { gap: 10px; flex-wrap: wrap; }
+  .welcome p { line-height: 1.8; }
+  .field label, .rf label { font-size: 13px; line-height: 1.6; }
+  .field input, .field select, .field textarea, .rf input, .rf select { font-size: 16px; min-height: 44px; }
+  .project-actions .btn, .runner-actions .btn, .toolcard .launch { min-height: 44px; }
+  .toolcard p, .runner-note, .notice { font-size: 12px; line-height: 1.8; }
+  .toolcard h3 { line-height: 1.7; }
+  .runner-backdrop { padding: 0; }
+  .runner { width: 100%; max-height: 100vh; max-height: 100dvh; border-radius: 0; }
+  .runner-head { gap: 12px; }
+  .runner-close { min-width: 44px; min-height: 44px; }
+  .runner-body { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .result-card b { overflow-wrap: anywhere; }
+}
+@media (max-width: 360px) {
+  .toolgrid { grid-template-columns: 1fr; }
+  .toolsbar { flex-wrap: wrap; }
+  .toolsbar input { flex-basis: 100%; }
+  .toolsbar select { max-width: 100%; width: 100%; }
+}
