@@ -13,4 +13,9 @@ assert.ok(matches('نشست پی سطحی','پی و خاک','فونداسیون'
 assert.ok(matches('برنامه‌ریزی زمان‌بندی','برآورد و اجرا','زمانبندی'));
 assert.ok(matches('طرح اختلاط بتن','بتن',''));
 assert.equal(matches('طرح اختلاط بتن','بتن','سرامیک'), false);
+assert.ok(matches('کمانش عضو فشاری','فولاد','اویلر'));
+assert.ok(matches('وزن مقاطع فولادی','فولاد','تیرآهن'));
+assert.ok(matches('کنترل پایداری دیوار حائل','پی و خاک','دیوار نگهبان'));
+assert.ok(matches('طراحی هوشمند راه‌پله','معماری','راه-پله'));
+assert.ok(matches('حجم خاک‌برداری','پی و خاک','خاک/برداری'));
 console.log('PASS Persian tool search, alternate spellings, aliases and unmatched terms');
