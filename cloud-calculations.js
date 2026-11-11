@@ -23,8 +23,11 @@
   save.addEventListener('click', async () => {
     if(save.disabled)return;
     if (!select.value) { status.textContent = 'ابتدا پروژه‌های ابری را بارگیری و یک پروژه انتخاب کنید.'; return; }
-    const record = result();
-    if (!record) { status.textContent = 'ابتدا ورودی‌های معتبر وارد کنید.'; return; }
+    const current = result();
+    if (!current) { status.textContent = 'ابتدا ورودی‌های معتبر وارد کنید.'; return; }
+    let record;
+    try { record=JSON.parse(JSON.stringify(current)); }
+    catch (_) { status.textContent='اطلاعات محاسبه معتبر نیست و ذخیره نشد.';return; }
     const token=revision,request=++saveRequest,projectId=select.value;save.disabled = true;
     try { await window.yasCloud.saveCalculation(projectId, record); if(token===revision&&request===saveRequest)status.textContent = select.value===projectId?'محاسبه زمان ارسال در پروژه ابری ذخیره شد.':'محاسبه در پروژه انتخاب‌شده هنگام ارسال ذخیره شد؛ انتخاب فعلی تغییر کرده است.'; }
     catch (_) { if(token===revision&&request===saveRequest)status.textContent = 'ذخیره تأیید نشد؛ اتصال و پروژه را بررسی کنید. پیش از تلاش دوباره، فهرست محاسبات پروژه را بررسی کنید.'; }
