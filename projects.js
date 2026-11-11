@@ -90,7 +90,7 @@
   }
 
   const number = value => new Intl.NumberFormat('fa-IR', {maximumFractionDigits: 2}).format(value);
-  const normalize = value => String(value || '').normalize('NFKC').replace(/[يك]/g, c => c === 'ي' ? 'ی' : 'ک').toLocaleLowerCase().trim();
+  const normalize = value => String(value || '').normalize('NFKC').toLowerCase().replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[ً-ٰٟـ]/g,'').replace(/[‌‍\s]+/g,' ').trim();
   function render() {
     list.replaceChildren();
     renderTrash();
@@ -172,6 +172,7 @@
   if (projects === null) return;
   byId('projectSearch').addEventListener('input',render);
   byId('projectStatusFilter').addEventListener('change',render);
+  byId('projectClearFilters').addEventListener('click',()=>{byId('projectSearch').value='';byId('projectStatusFilter').value='';render();byId('projectSearch').focus();});
   function refreshList() {
     const updated=read();if(updated===null)return;
     projects=updated;render();

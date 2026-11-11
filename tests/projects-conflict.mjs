@@ -19,3 +19,9 @@ get('projectReload').handlers.click();assert.equal(get('projectName').value,'ت�
 get('projectCancel').handlers.click();edit();get('projectName').value='نام جدید';
 const changed=JSON.parse(store[key]);changed.push({...project,id:'p2',name:'پروژه دوم'});store[key]=JSON.stringify(changed);window.handlers['yasbuildos-projects-updated']();assert.equal(get('projectName').value,'نام جدید');submit();assert.equal(JSON.parse(store[key])[0].name,'نام جدید');assert.equal(JSON.parse(store[key]).length,2);
 console.log('PASS stale project writes and edited project conflicts preserve form and data');
+
+// Search matches Persian and Arabic variants and clearing filters preserves projects.
+const refreshed=JSON.parse(store[key]);refreshed[0].city='کاشان';refreshed[0].type='ساختمان‌سازی';store[key]=JSON.stringify(refreshed);get('projectReload').handlers.click();
+get('projectSearch').value='ساختمان سازي';get('projectSearch').handlers.input();assert.equal(get('projectList').children.length,1);
+get('projectStatusFilter').value='متوقف';get('projectStatusFilter').handlers.change();assert.ok(get('projectCount').textContent.includes('۰'));
+get('projectClearFilters').handlers.click();assert.equal(get('projectSearch').value,'');assert.equal(get('projectStatusFilter').value,'');assert.ok(get('projectCount').textContent.includes('۲'));assert.equal(JSON.parse(store[key]).length,2);
