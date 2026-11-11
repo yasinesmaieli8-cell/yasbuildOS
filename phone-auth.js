@@ -33,7 +33,7 @@
       const {error} = await client.auth.signInWithOtp({phone});
       if (normalizePhone(phoneInput.value) !== phone) return;
       if (error) { message.textContent = 'ارسال کد انجام نشد؛ شماره و وضعیت سرویس را بررسی کنید.'; return; }
-      sentPhone = phone; message.textContent = 'اگر سرویس فعال باشد، کد به شماره واردشده ارسال می‌شود.';
+      sentPhone = phone; message.textContent = 'درخواست ثبت شد؛ دریافت پیامک ممکن است کمی زمان ببرد. اگر کد نرسید دوباره تلاش کنید.';
     }));
     verify.addEventListener('click', () => run(async () => {
       const phone = normalizePhone(phoneInput.value), token = normalizeCode(codeInput.value);
