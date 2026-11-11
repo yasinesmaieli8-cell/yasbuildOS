@@ -29,3 +29,9 @@ el('dashProjectsCsv').handlers.click();const financial=await exported.text();
 assert.ok(financial.includes(`"'=پروژه"`));assert.ok(financial.includes('"1000","100","210","1","50","150","690","700","2","1"'));
 assert.ok(financial.includes('"بدون بودجه","","","","0","0","0","0","0","","","0","0"'));
 const oldExport=exported;data['yasbuildos.checklist.v1']=JSON.stringify({a:{reserve:0,items:[{quantity:-1}]}});el('dashProjectsCsv').handlers.click();assert.equal(exported,oldExport);assert.ok(el('dashSummary').textContent.includes('ساخته نشد'));
+
+// Due dates are grouped using the user's local calendar.
+const localDateAt=n=>{const d=new Date();d.setDate(d.getDate()+n);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+data['yasbuildos.projects.v1']=JSON.stringify([{id:'a',name:'پروژه',budget:1000}]);
+data['yasbuildos.checklist.v1']=JSON.stringify({a:{items:[{name:'امروز',due:localDateAt(0)},{name:'هفته',due:localDateAt(7)},{name:'دورتر',due:localDateAt(8)},{name:'تمام‌شده',due:localDateAt(0),done:true}]}});el('nav').handlers.click();
+assert.ok(el('dashDueCount').textContent.includes('۱ امروز'));assert.ok(el('dashDueCount').textContent.includes('۱ هفت روز آینده'));assert.ok(el('dashDue').children[0].children[0].textContent.includes('امروز'));assert.ok(el('dashDue').children[1].children[0].textContent.includes('هفت روز آینده'));

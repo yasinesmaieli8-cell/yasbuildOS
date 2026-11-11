@@ -6,7 +6,8 @@
     if(!Array.isArray(projects)||!checks||typeof checks!=='object'||Array.isArray(checks))throw Error('invalid');
     return {projects,checks};
   }
-  const dateToday=()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');};
+  const dateAtOffset=offset=>{const now=new Date();now.setDate(now.getDate()+offset);return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');};
+  const dateToday=()=>dateAtOffset(0);
   function dueItems(projects,checks){
     const due=[];
     for(const p of projects){const items=Array.isArray(checks[p.id]?.items)?checks[p.id].items:[];
@@ -79,11 +80,11 @@
       }
       if(!projects.length)list.textContent='هنوز پروژه‌ای ثبت نشده است. برای شروع از بخش پروژه‌های من، پروژه بسازید.';
       const deadlines=$('dashDue');deadlines.replaceChildren();
-      const localDate=dateToday();
-      $('dashDueCount').textContent=`${fmt(due.length)} فعالیت دارای موعد · ${fmt(due.filter(i=>i.date<localDate).length)} موعد گذشته؛ نمایش حداکثر ۵ مورد`;
+      const localDate=dateToday(),weekEnd=dateAtOffset(7);
+      $('dashDueCount').textContent=`${fmt(due.length)} فعالیت دارای موعد · ${fmt(due.filter(i=>i.date<localDate).length)} موعد گذشته · ${fmt(due.filter(i=>i.date===localDate).length)} امروز · ${fmt(due.filter(i=>i.date>localDate&&i.date<=weekEnd).length)} هفت روز آینده؛ نمایش حداکثر ۵ مورد`;
       for(const item of due.slice(0,5)){
         const row=document.createElement('div'),desc=document.createElement('p'),open=document.createElement('button');
-        desc.textContent=[item.name,item.project,item.date,'اولویت: '+item.priority,item.assignee?'مسئول: '+item.assignee:'',item.date<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');
+        desc.textContent=[item.name,item.project,item.date,'اولویت: '+item.priority,item.assignee?'مسئول: '+item.assignee:'',item.date<localDate?'موعد گذشته':item.date===localDate?'امروز':item.date<=weekEnd?'هفت روز آینده':''].filter(Boolean).join(' · ');
         open.type='button';open.className='btn secondary sm';open.textContent='باز کردن پروژه';open.setAttribute('aria-label','باز کردن پروژه '+item.project+' برای فعالیت '+item.name);
         open.addEventListener('click',()=>{if(!window.yasbuildosOpenChecklist||!window.yasbuildosOpenChecklist(item.projectId))$('dashSummary').textContent='باز کردن پروژه ممکن نشد؛ فهرست پروژه‌ها را بررسی کنید.';});
         row.append(desc,open);deadlines.appendChild(row);
