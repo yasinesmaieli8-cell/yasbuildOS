@@ -202,6 +202,7 @@
   const selectProject=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';$('checkStageBudgetStage').value='';window.budgetInputs.checkStageBudget.set(null);resetForm();render();};
   $('checkProject').onchange=selectProject;
   $('checkSearch').oninput=render; $('checkFilter').onchange=render; $('checkStageFilter').onchange=render; $('checkCostFilter').onchange=render; $('checkSort').onchange=render; $('checkScenario').oninput=render;
+  $('checkClearFilters').onclick=()=>{$('checkSearch').value='';$('checkFilter').value='all';$('checkStageFilter').value='';$('checkCostFilter').value='';render();$('checkSearch').focus();};
   $('checkReload').onclick=()=>{refreshProjects();if(healthy)msg('فهرست به‌روزرسانی شد؛ اگر مشغول ویرایش بودید، تغییرات ردیف را بررسی کنید.');};
   $('checkReserveSave').onclick=()=>{if(!selected)return;const v=window.budgetInputs.checkReserve.get()??0;if(!Number.isFinite(v)||v<0||v>1e15){msg('ذخیره احتیاطی معتبر نیست.');return;} if(save({...all,[selected]:{...state(),reserve:v}})){msg('ذخیره احتیاطی ثبت شد.');render();}};
   $('checkCancel').onclick=resetForm;

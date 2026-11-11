@@ -39,3 +39,7 @@ store={};failProject=true;await importBackup(withTrash);assert.equal(store[trash
 store={[trashKey]:JSON.stringify([deleted]),[checkKey]:JSON.stringify({deleted:{reserve:45,items:[]}})};const activeCollision=structuredClone(withTrash);activeCollision.projects=[deleted.project];activeCollision.deletedProjects=[];await importBackup(activeCollision);assert.equal(JSON.parse(store[checkKey]).deleted.reserve,45);assert.deepEqual(JSON.parse(store[projectKey]),[]);assert.equal(JSON.parse(store[trashKey])[0].project.id,'deleted');
 const v1=structuredClone(withTrash);v1.version=1;delete v1.deletedProjects;delete v1.checklists.deleted;store={};await importBackup(v1);assert.equal(JSON.parse(store[projectKey])[0].id,'project-1');
 console.log('PASS complete local backup, restore, duplicate protection, invalid data and rollback');
+
+// A downloaded file must warn if some local data was omitted or cannot be restored.
+store={[projectKey]:JSON.stringify([project]),[checkKey]:JSON.stringify({'project-1':{reserve:0,items:[{...item,id:'one',dependencyId:'two'},{...item,id:'two',dependencyId:'one'}]},orphan:{reserve:0,items:[]}})};
+el('workspaceBackupExport').handlers.click();assert.ok(el('workspaceBackupMessage').textContent.includes('وابستگی دوری'));assert.ok(el('workspaceBackupMessage').textContent.includes('چک‌لیست بدون پروژه'));const warnedBackup=JSON.parse(await blob.text());assert.equal(warnedBackup.checklists.orphan,undefined);assert.equal(warnedBackup.checklists['project-1'].items.length,2);

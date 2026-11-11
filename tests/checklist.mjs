@@ -110,3 +110,6 @@ console.log('PASS manual price, estimate, paid amount, reserve, balance, persist
 const searchData=JSON.parse(store['yasbuildos.checklist.v1']);searchData.p1.items[0].notes='کاشی‌کاری Kitchen';store['yasbuildos.checklist.v1']=JSON.stringify(searchData);el('checkReload').handlers.click();
 el('checkSearch').value='كاشي كاري';el('checkSearch').oninput();assert.ok(el('checkItems').children.some(row=>row.children.some(child=>child.textContent.includes('کاشی‌کاری'))));
 el('checkSearch').value='kitchen';el('checkSearch').oninput();assert.ok(el('checkItems').children.some(row=>row.children.some(child=>child.textContent.includes('Kitchen'))));
+
+// Clearing filters returns to the complete list without changing saved items.
+const beforeClear=store['yasbuildos.checklist.v1'];el('checkSearch').value='نامی که نیست';el('checkFilter').value='done';el('checkCostFilter').value='مصالح';el('checkSearch').oninput();el('checkClearFilters').handlers.click();assert.equal(el('checkSearch').value,'');assert.equal(el('checkFilter').value,'all');assert.equal(el('checkCostFilter').value,'');assert.equal(store['yasbuildos.checklist.v1'],beforeClear);assert.ok(el('checkItems').children.length>0);

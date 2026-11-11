@@ -34,7 +34,11 @@
       const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
       if(blob.size>maxSize)throw Error('too large');
       const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='yasbuildos-workspace-'+new Date().toISOString().slice(0,10)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      say('پشتیبان پروژه‌ها، فهرست حذف‌شده‌ها و چک‌لیست‌ها آماده شد؛ فایل را در جای امن نگه دارید.');
+      const warnings=[];
+      const orphanCount=Object.keys(checks).filter(id=>!Object.hasOwn(selected,id)).length;
+      if(orphanCount)warnings.push(orphanCount.toLocaleString('fa-IR')+' چک‌لیست بدون پروژه فعال یا حذف‌شده در فایل قرار نگرفت');
+      if(Object.values(selected).some(check=>hasDependencyCycle(check.items)))warnings.push('وابستگی دوری در چک‌لیست وجود دارد؛ بازیابی این فایل تا اصلاح وابستگی‌ها ممکن نیست');
+      say('پشتیبان آماده شد؛ فایل را در جای امن نگه دارید.'+(warnings.length?' هشدار: '+warnings.join('؛ ')+'.':''));
     }catch(_){say('ساخت پشتیبان ممکن نشد؛ داده‌ها یا فضای ذخیره‌سازی و سقف ۱۰ مگابایت را بررسی کنید.');}
   });
   input.addEventListener('change',async()=>{
