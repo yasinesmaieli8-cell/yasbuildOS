@@ -23,6 +23,7 @@ el('checkStageBudgetStage').value='پی';window.budgetInputs.checkStageBudget.se
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.stageBudgets[0].amount,14000000);
 assert.ok(el('checkStageBudgetList').children[0].textContent.includes('هشدار عبور از سقف'));
 assert.ok(el('checkStageBudgetTotal').textContent.includes('۷۶٬۰۰۰٬۰۰۰ تومان'));
+el('checkStageCsv').handlers.click();assert.ok((await exported.text()).includes('"-1000000"'));assert.ok(!(await exported.text()).includes("\"'-1000000\""));
 window.budgetInputs.checkStageBudget.set(95000000);el('checkStageBudgetSave').handlers.click();assert.ok(el('checkStageBudgetTotal').textContent.includes('هشدار'));
 el('checkStageBudgetRemove').handlers.click();assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.stageBudgets.length,0);
 el('checkStageBudgetStage').value='پی';window.budgetInputs.checkStageBudget.set(25000000);el('checkStageBudgetSave').handlers.click();

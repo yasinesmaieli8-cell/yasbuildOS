@@ -343,7 +343,7 @@
   };
   $('checkCsv').onclick=()=>{
     if(!selected)return;
-    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const cell=value=>{let text=String(value??'');if(typeof value!=='number'&&/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
     const rows=[['فعالیت','مرحله','مقدار','واحد','قیمت واحد تومان','هزینه اضافی تومان','برآورد تومان','وضعیت هزینه','پرداخت یا تعهد تومان','انجام شده','منبع','تاریخ قیمت','مسئول','موعد','اولویت','نوع هزینه','توضیحات','مقدار تهیه‌شده','پیش‌نیاز','وضعیت پیش‌نیاز']];
     const items=state().items;
     for(const item of items){const prior=item.dependencyId&&items.find(x=>x.id===item.dependencyId);rows.push([item.name,item.stage,item.quantity,item.unit,item.unitPrice,item.extra,item.unitPrice===null?'':item.quantity*item.unitPrice+item.extra,item.status,item.paid,item.done?'بله':'خیر',item.source,item.date,item.assignee||'',item.due||'',item.priority||'معمولی',item.costType||costTypes[0],item.notes||'',item.purchased??'',prior?prior.name:item.dependencyId?'یافت نشد':'',prior?(prior.done?'انجام شده':'انجام نشده'):'']);}
@@ -352,7 +352,7 @@
   };
   $('checkMaterialsCsv').onclick=()=>{
     if(!selected)return;
-    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const cell=value=>{let text=String(value??'');if(typeof value!=='number'&&/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
     const rows=[['مصالح فعالیت انجام‌نشده','مرحله','مقدار کل','مقدار تهیه‌شده','مقدار باقی‌مانده','واحد','قیمت واحد تومان','برآورد باقی‌مانده بدون هزینه اضافی تومان','وضعیت هزینه','منبع','تاریخ قیمت','مسئول','موعد']];
     for(const item of materialCandidates()){const remaining=item.purchased==null?null:item.quantity-item.purchased;rows.push([item.name,item.stage,item.quantity,item.purchased??'',remaining??'',item.unit,item.unitPrice,remaining===null||item.unitPrice===null?'':remaining*item.unitPrice,item.status,item.source,item.date,item.assignee||'',item.due||'']);}
     const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
@@ -360,7 +360,7 @@
   };
   $('checkOffersCsv').onclick=()=>{
     if(!selected)return;
-    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const cell=value=>{let text=String(value??'');if(typeof value!=='number'&&/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
     const rows=[['فعالیت','مرحله','واحد ردیف','فروشنده یا منبع','قیمت واحد تومان','واحد قیمت','تاریخ قیمت','شهر، برند یا شرایط فروش','وضعیت واحد']];
     for(const item of state().items)for(const offer of item.offers||[])rows.push([item.name,item.stage,item.unit,offer.source,offer.price,offer.unit,offer.date,offer.note||'',offer.unit===item.unit?'همسان':'متفاوت']);
     const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
@@ -370,7 +370,7 @@
     if(!selected)return;
     const current=state(),allocations=current.stageBudgets===undefined?[]:current.stageBudgets;
     if(!validStageBudgets(allocations)){msg('سقف مراحل معتبر نیست؛ گزارش ساخته نشد.');return;}
-    const cell=value=>{let text=String(value??'');if(/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    const cell=value=>{let text=String(value??'');if(typeof value!=='number'&&/^[\s\t\r\n]*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
     const rows=[['مرحله','سقف تومان','برآورد اقلام قیمت‌دار تومان','تعداد اقلام بدون قیمت','پرداخت‌شده تومان','تعهد تومان','مانده سقف پس از پرداخت و تعهد تومان','وضعیت سقف']];
     const groups=new Map();
     for(const item of current.items){const group=groups.get(item.stage)||{estimate:0,missing:0,spent:0,committed:0};if(item.unitPrice===null)group.missing++;else group.estimate+=item.quantity*item.unitPrice+item.extra;if(item.status==='پرداخت‌شده')group.spent+=item.paid;if(item.status==='متعهدشده')group.committed+=item.paid;groups.set(item.stage,group);}
