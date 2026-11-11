@@ -1,0 +1,14 @@
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const html=await readFile('index.html','utf8'),start=html.indexOf('const basicTools='),end=html.indexOf('function openBasic',start);
+assert.ok(start>=0&&end>start);const context=vm.createContext({});vm.runInContext(html.slice(start,end),context);
+const tool=vm.runInContext('basicTools',context)['کمانش عضو فشاری'];
+const calculate=v=>Object.fromEntries(tool.calc(v));
+const base=calculate([3,1,200,8000]);
+const key='بار کمانش الاستیک ایده‌آل اویلر (کیلونیو‌تن)';
+assert.equal(base['طول مؤثر (متر)'],3);
+assert.ok(Math.abs(base[key]-17545.96338)<0.01);
+for(const [inputs,factor] of [[[6,1,200,8000],0.25],[[3,2,200,8000],0.25],[[3,1,400,8000],2],[[3,1,200,16000],2]]) assert.ok(Math.abs(calculate(inputs)[key]/base[key]-factor)<1e-12);
+assert.ok(!Number.isFinite(calculate([0,1,200,8000])[key]));
+console.log('PASS Euler ideal buckling reference example and scaling');
