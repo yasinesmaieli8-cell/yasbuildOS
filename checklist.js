@@ -384,6 +384,7 @@
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='yasbuildos-stage-budgets.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);msg('گزارش بودجه مراحل ساخته شد؛ اقلام بدون قیمت در برآورد کامل لحاظ نشده‌اند.');
   };
   for(const s of stages){const o=document.createElement('option');o.textContent=s;$('checkStage').appendChild(o);}
+  window.addEventListener('yasbuildos-local-calculations-updated',()=>{read();if(!healthy)return;if(selected&&!projects.some(p=>p.id===selected)){refreshProjects();return;}render();});
   window.addEventListener('storage',event=>{if(event.key===key||event.key===null)msg('اطلاعات چک‌لیست در زبانه دیگری تغییر کرد. پیش از ادامه، فهرست را به‌روزرسانی کنید.');});
   document.querySelector('[data-tab="checklist"]').addEventListener('click',refreshProjects);
   window.yasbuildosOpenChecklist=(id,filter='all',stage='')=>{

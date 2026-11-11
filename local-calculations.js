@@ -27,6 +27,7 @@
         if(!validRecord(entry)||existing.some(r=>r.id===entry.id))throw Error('invalid record');
         if(localStorage.getItem(projectsKey)!==data.projectsRaw||localStorage.getItem(checksKey)!==data.checksRaw)throw Error('changed');
         localStorage.setItem(checksKey,JSON.stringify({...data.checks,[id]:{...state,calculations:[...existing,entry]}}));
+        window.dispatchEvent(new Event('yasbuildos-local-calculations-updated'));
         message.textContent='محاسبه در پروژه محلی ذخیره شد؛ در چک‌لیست همان پروژه قابل مشاهده است.';
       }catch(_){message.textContent='ذخیره محاسبه ممکن نشد؛ داده‌ها و فضای مرورگر را بررسی کنید.';}
     });
@@ -49,7 +50,7 @@
           if(!confirm('این محاسبه از پروژه محلی حذف شود؟'))return;
           try{const now=read(),current=now.checks[id],all=records(current);if(!all.some(r=>r.id===item.id&&JSON.stringify(r)===JSON.stringify(item)))throw Error('changed');
             if(localStorage.getItem(checksKey)!==now.checksRaw||localStorage.getItem(projectsKey)!==now.projectsRaw)throw Error('changed');
-            localStorage.setItem(checksKey,JSON.stringify({...now.checks,[id]:{...current,calculations:all.filter(r=>r.id!==item.id)}}));render();status.textContent='محاسبه حذف شد. برای ویرایش چک‌لیست، فهرست پروژه‌ها را به‌روزرسانی کنید.';
+            localStorage.setItem(checksKey,JSON.stringify({...now.checks,[id]:{...current,calculations:all.filter(r=>r.id!==item.id)}}));window.dispatchEvent(new Event('yasbuildos-local-calculations-updated'));render();status.textContent='محاسبه حذف شد.';
           }catch(_){status.textContent='حذف انجام نشد؛ اطلاعات تغییر کرده یا دسترسی به ذخیره‌سازی ممکن نیست.';}
         });details.appendChild(del);list.appendChild(details);
       }
