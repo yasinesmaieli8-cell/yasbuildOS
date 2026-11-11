@@ -3,6 +3,17 @@
   const $ = id => document.getElementById(id), key = 'yasbuildos.checklist.v1', projectKey = 'yasbuildos.projects.v1';
   const number = n => new Intl.NumberFormat('fa-IR', {maximumFractionDigits: 2}).format(n);
   const money = n => number(n) + ' تومان';
+  function sourceLink(source) {
+    try {
+      const url = new URL(String(source).trim());
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+      if (url.username || url.password) return null;
+      const link = document.createElement('a');
+      link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.textContent = 'باز کردن منبع قیمت';
+      return link;
+    } catch (_) { return null; }
+  }
   const stages = ['آماده‌سازی و مجوزها','خاک‌برداری','پی و فونداسیون','اسکلت و سقف','دیوارچینی','تأسیسات','نازک‌کاری','نما و محوطه','تحویل'];
   const costTypes = ['دسته‌بندی نشده','مصالح','دستمزد','حمل','تجهیزات','سایر هزینه‌ها'];
   let all = {}, projects = [], selected = '', editing = null, editOriginal = null, healthy = true, reserveProject = null, lastRaw = null, openOffers = null, deletedItem = null;
@@ -100,7 +111,7 @@
       const title=document.createElement('h3'); title.textContent=item.name;
       const detail=document.createElement('p'); detail.textContent=[item.stage,'نوع هزینه: '+costType,'اولویت: '+(item.priority||'معمولی'),number(item.quantity)+' '+item.unit,costType==='مصالح'?(item.purchased==null?'مقدار تهیه‌شده ثبت نشده':'تهیه‌شده: '+number(item.purchased)+' '+item.unit):'',item.unitPrice===null?'قیمت واحد نامشخص':'قیمت واحد: '+money(item.unitPrice),cost===null?'برآورد نامشخص':'برآورد: '+money(cost),item.status==='برآورد'?'بدون پرداخت ثبت‌شده':item.status+': '+money(item.paid),item.done?'انجام شده':'انجام نشده'].filter(Boolean).join(' · ');
       row.append(title,detail);
-      if(item.source){ const source=document.createElement('p'); source.textContent='منبع ثبت‌شده: '+item.source+(item.date?' · '+item.date:''); row.appendChild(source); }
+      if(item.source){ const source=document.createElement('p'); source.textContent='منبع ثبت‌شده: '+item.source+(item.date?' · '+item.date:''); row.appendChild(source); const link=sourceLink(item.source); if(link) row.appendChild(link); }
       if(item.assignee||item.due){const details=document.createElement('p');const today=new Date(), localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');details.textContent=[item.assignee?'مسئول: '+item.assignee:'',item.due?'موعد: '+item.due:'',item.due&&!item.done&&item.due<localDate?'موعد گذشته':''].filter(Boolean).join(' · ');row.appendChild(details);}
       if(item.notes){const notes=document.createElement('p');notes.textContent='توضیحات: '+item.notes;row.appendChild(notes);}
       if(item.dependencyId){const prerequisite=byId.get(item.dependencyId),dependency=document.createElement('p');dependency.textContent=prerequisite?'پیش‌نیاز: '+prerequisite.name+' · '+(prerequisite.done?'انجام شده':'هنوز انجام نشده'):'پیش‌نیاز یافت نشد؛ ردیف را ویرایش کنید.';row.appendChild(dependency);}
@@ -119,6 +130,7 @@
       const comparable=offers.filter(o=>o.unit===item.unit), lowest=comparable.length?Math.min(...comparable.map(o=>o.price)):null;
       offers.forEach((offer,index)=>{
         const line=document.createElement('p');line.textContent=[offer.source,money(offer.price)+' برای '+offer.unit,offer.date||'بدون تاریخ',offer.note?'مشخصات و شرایط: '+offer.note:'',offer.unit!==item.unit?'واحد متفاوت؛ قابل مقایسه نیست':offer.price===lowest?'کمترین قیمت واحد':''].filter(Boolean).join(' · ');
+        const sourceAnchor=sourceLink(offer.source);if(sourceAnchor)offerBox.appendChild(sourceAnchor);
         const apply=document.createElement('button');apply.type='button';apply.className='btn secondary sm';apply.textContent='استفاده از قیمت';apply.disabled=offer.unit!==item.unit;
         apply.onclick=()=>{const current=state(), existing=current.items.find(x=>x.id===item.id);if(!existing||offer.unit!==existing.unit)return;if(!Number.isSafeInteger(Math.round(existing.quantity*offer.price+existing.extra))){msg('برآورد از محدوده قابل محاسبه بیشتر است.');return;}const history=[...(existing.priceHistory||[]),{unitPrice:existing.unitPrice,unit:existing.unit,source:existing.source||'',date:existing.date||'',changedAt:new Date().toISOString()}].slice(-30);const updated={...existing,unitPrice:offer.price,source:offer.source,date:offer.date,priceHistory:history};if(save({...all,[selected]:{...current,items:current.items.map(x=>x.id===item.id?updated:x)}})){render();msg('قیمت فروشنده در برآورد ردیف اعمال شد.');}};
         const del=document.createElement('button');del.type='button';del.className='btn secondary sm';del.textContent='حذف قیمت';del.onclick=()=>{const current=state(),existing=current.items.find(x=>x.id===item.id);if(!existing)return;const updated={...existing,offers:existing.offers.filter((_,i)=>i!==index)};if(save({...all,[selected]:{...current,items:current.items.map(x=>x.id===item.id?updated:x)}})){render();msg('قیمت فروشنده حذف شد.');}};
