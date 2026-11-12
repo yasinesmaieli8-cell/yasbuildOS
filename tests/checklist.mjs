@@ -19,6 +19,10 @@ assert.equal(el('checkEstimate').textContent,'۲۰٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkSpent').textContent,'۱۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkBalance').textContent,'۷۵٬۰۰۰٬۰۰۰ تومان');
 assert.equal(el('checkPlanBalance').textContent,'۷۰٬۰۰۰٬۰۰۰ تومان');
+el('checkScenario').value='10';el('checkScenario').oninput();assert.ok(el('checkScenarioResult').textContent.includes('۲۲٬۰۰۰٬۰۰۰ تومان'));assert.ok(el('checkScenarioResult').textContent.includes('۲٬۰۰۰٬۰۰۰ تومان'));assert.ok(el('checkScenarioResult').textContent.includes('۶۸٬۰۰۰٬۰۰۰ تومان'));assert.ok(el('checkScenarioResult').textContent.includes('قیمت‌ها را تغییر نمی‌دهد'));
+el('checkScenario').value='-100';el('checkScenario').oninput();assert.ok(el('checkScenarioResult').textContent.includes('۹۰٬۰۰۰٬۰۰۰ تومان'));
+el('checkScenario').value='';el('checkScenario').oninput();assert.ok(el('checkScenarioResult').textContent.includes('درصد تغییر باید'));
+el('checkScenario').value='0';el('checkScenario').oninput();
 el('checkStageBudgetStage').value='پی';window.budgetInputs.checkStageBudget.set(14000000);el('checkStageBudgetSave').handlers.click();
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.stageBudgets[0].amount,14000000);
 assert.ok(el('checkStageBudgetList').children[0].textContent.includes('هشدار عبور از سقف'));
@@ -38,7 +42,7 @@ el('checkItems').children[0].children.find(x=>x.className==='project-actions').c
 el('checkMaterialsCsv').handlers.click();assert.ok((await exported.text()).includes('"100","40","60"'));
 el('checkItems').children[0].children.find(x=>x.className==='project-actions').children[1].handlers.click();el('checkPurchased').value='101';el('checkForm').handlers.submit({preventDefault(){}});assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].purchased,40);assert.ok(el('checkMessage').textContent.includes('مقدار تهیه‌شده'));
 el('checkPurchased').value='100';el('checkForm').handlers.submit({preventDefault(){}});assert.ok(el('checkMaterialsSummary').textContent.includes('۰ ردیف'));el('checkPurchased').value='';
-el('checkScenario').value='10';el('checkScenario').oninput();assert.equal(el('checkScenarioResult').textContent,'برآورد سناریو: ۲۲٬۰۰۰٬۰۰۰ تومان');assert.ok(el('checkPriceAge').textContent.includes('۱ قیمت تاریخ ندارد'));
+el('checkScenario').value='10';el('checkScenario').oninput();assert.ok(el('checkScenarioResult').textContent.includes('برآورد سناریو: ۲۲٬۰۰۰٬۰۰۰ تومان'));assert.ok(el('checkPriceAge').textContent.includes('۱ قیمت تاریخ ندارد'));
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,1);
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].assignee,'علی');assert.ok(el('checkItems').children[0].children[2].textContent.includes('موعد گذشته'));
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items[0].priority,'بالا');el('checkFilter').value='urgent';el('checkFilter').handlers.change();assert.equal(el('checkVisibleCount').textContent,'نمایش ۱ از ۱ ردیف');
@@ -51,6 +55,7 @@ el('checkFilter').value='urgent';el('checkFilter').handlers.change();assert.equa
 el('checkTemplate').handlers.click();
 assert.equal(JSON.parse(store['yasbuildos.checklist.v1']).p1.items.length,10);
 assert.ok(el('checkEstimate').textContent.includes('۹ قلم بدون قیمت'));
+assert.ok(el('checkScenarioResult').textContent.includes('۹ قلم بدون قیمت در محاسبه لحاظ نشده است'));
 el('checkName').value='=1+1';el('checkStage').value='پی';el('checkQuantity').value='1';el('checkUnit').value='عدد';el('checkUnitPrice').value='';el('checkExtra').value='0';el('checkStatus').value='برآورد';el('checkPaid').value='0';el('checkForm').handlers.submit({preventDefault(){}});
 el('checkCsv').handlers.click();assert.ok((await exported.text()).includes('"\'=1+1"'));assert.ok((await exported.text()).includes('"اولویت"'));
 assert.ok(el('checkMaterialsSummary').textContent.includes('۱ ردیف بدون قیمت'));el('checkMaterialsCsv').handlers.click();const materialsCsv=await exported.text();assert.ok(materialsCsv.includes('"\'=1+1"'));assert.ok(!materialsCsv.includes('سیمان'));

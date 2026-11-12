@@ -195,8 +195,14 @@
     $('checkBalance').textContent=budget===null?'بودجه ثبت نشده':money(budget-spent-committed-reserve);
     $('checkProgress').textContent=items.length?number(done/items.length*100)+'٪':'۰٪';
     $('checkPriceAge').textContent=`${number(stale)} قیمت بیش از ۳۰ روز پیش ثبت شده و ${number(undated)} قیمت تاریخ ندارد. تاریخ و منبع را پیش از استفاده بررسی کنید.`;
-    const change=Number($('checkScenario').value);
-    $('checkScenarioResult').textContent=Number.isFinite(change)&&change>=-100&&change<=1000?`برآورد سناریو: ${money(estimate+pricedBase*change/100)}${missing?' + '+number(missing)+' قلم بدون قیمت':''}`:'درصد تغییر باید بین ۱۰۰- تا ۱۰۰۰ باشد.';
+    const scenarioInput=$('checkScenario'), change=Number(scenarioInput.value);
+    if(scenarioInput.value.trim()===''||!Number.isFinite(change)||change < -100||change > 1000){
+      $('checkScenarioResult').textContent='درصد تغییر باید بین ۱۰۰- تا ۱۰۰۰ باشد.';
+    }else{
+      const difference=pricedBase*change/100, scenarioEstimate=estimate+difference;
+      const balance=budget===null?'بودجه ثبت نشده':money(budget-scenarioEstimate-reserve);
+      $('checkScenarioResult').textContent=`برآورد سناریو: ${money(scenarioEstimate)} · تغییر نسبت به برآورد فعلی: ${money(difference)} · مانده بودجه پس از ذخیره احتیاطی: ${balance}${missing?' · '+number(missing)+' قلم بدون قیمت در محاسبه لحاظ نشده است':''} · این سناریو فقط برای بررسی است و قیمت‌ها را تغییر نمی‌دهد.`;
+    }
     $('checkWarning').textContent=budget!==null && (spent+committed+reserve>budget || estimate+reserve>budget)?'هشدار: مجموع برآورد یا هزینه‌ها با ذخیره احتیاطی از بودجه بیشتر است.':'';
   }
   const selectProject=()=>{selected=$('checkProject').value;$('checkStageFilter').value='';$('checkStageBudgetStage').value='';window.budgetInputs.checkStageBudget.set(null);resetForm();render();};
