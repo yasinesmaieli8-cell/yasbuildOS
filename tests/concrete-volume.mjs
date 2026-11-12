@@ -2,7 +2,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
-const html=await readFile('index.html','utf8');
+const html=await readFile('app.html','utf8');
 const start=html.indexOf('const basicTools='),end=html.indexOf('const incompleteTools=',start);
 assert.ok(start>=0&&end>start);
 const elements={};

@@ -188,7 +188,7 @@
       if (error || !data?.user || data.user.id !== userId || currentUser?.id !== userId) throw new Error('save failed');
       renderUser(data.user);
       el('profileMessage').textContent = '';
-      document.querySelector('[data-tab="tools"]').click();
+      document.querySelector('[data-tab="dashboard"]').click();
     } catch (_) { el('profileMessage').textContent = 'ثبت اطلاعات انجام نشد؛ اتصال را بررسی و دوباره تلاش کنید.'; }
     finally { el('profileSave').disabled = false; }
   });
@@ -404,6 +404,7 @@
   client.auth.onAuthStateChange((event, session) => {
     queueMicrotask(() => {
       renderUser(session?.user || null);
+      if (event === 'SIGNED_IN' && session?.user && !needsProfile(session.user)) document.querySelector('[data-tab="dashboard"]').click();
       if (event === 'SIGNED_OUT') { el('phonePasswordValue').value = ''; el('phoneNewPassword').value = ''; el('phoneNewPasswordConfirm').value = ''; el('phoneSetPasswordMessage').textContent = ''; el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPassword').value = ''; el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true; hidePasswords(); }
       if (event === 'PASSWORD_RECOVERY') { document.querySelector('[data-tab="auth"]').click(); el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد و تکرار کنید.'); }
     });

@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const html=await readFile('index.html','utf8'),start=html.indexOf('const basicTools='),end=html.indexOf('function openBasic',start);
+const html=await readFile('app.html','utf8'),start=html.indexOf('const basicTools='),end=html.indexOf('function openBasic',start);
 assert.ok(start>=0&&end>start);const context=vm.createContext({});vm.runInContext(html.slice(start,end),context);
 const tool=vm.runInContext('basicTools',context)['کمانش عضو فشاری'];
 const calculate=v=>Object.fromEntries(tool.calc(v));

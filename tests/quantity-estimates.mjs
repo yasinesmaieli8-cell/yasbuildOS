@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const html=await readFile('index.html','utf8'),start=html.indexOf('const basicTools='),end=html.indexOf('function openBasic',start);
+const html=await readFile('app.html','utf8'),start=html.indexOf('const basicTools='),end=html.indexOf('function openBasic',start);
 assert.ok(start>=0&&end>start);const context=vm.createContext({});vm.runInContext(html.slice(start,end),context);
 const tools=vm.runInContext('basicTools',context), values=(tool,inputs)=>Object.fromEntries(tool.calc(inputs));
 const rebar=tools['محاسبه وزن و تعداد میلگرد'],r=values(rebar,[16,5,10,12]);

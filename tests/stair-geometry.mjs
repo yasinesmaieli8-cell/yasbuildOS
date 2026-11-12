@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const html=await readFile('index.html','utf8'),start=html.indexOf('function calc(){'),end=html.indexOf('calc();',start);
+const html=await readFile('app.html','utf8'),start=html.indexOf('function calc(){'),end=html.indexOf('calc();',start);
 assert.ok(start>=0&&end>start);
 const ranges={height:[1800,6000,3000],tread:[200,400,280],width:[800,2500,1100],riserTarget:[140,220,170]},elements={};
 function element(id){if(!elements[id]){const range=ranges[id];elements[id]={value:range?String(range[2]):'',textContent:'',innerHTML:'',style:{},addEventListener(){},get validity(){const n=Number(this.value);return {valid:!range||(Number.isFinite(n)&&n>=range[0]&&n<=range[1])}}};}return elements[id];}

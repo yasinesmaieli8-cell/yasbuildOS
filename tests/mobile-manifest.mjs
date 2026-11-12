@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const manifest=JSON.parse(await readFile('manifest.webmanifest','utf8'));
-const html=await readFile('index.html','utf8');
+const html=await readFile('app.html','utf8');
 assert.equal(manifest.name.startsWith('YasBuildOS'),true);
 assert.equal(manifest.start_url,'./');assert.equal(manifest.scope,'./');assert.equal(manifest.display,'standalone');
 assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'));
