@@ -10,7 +10,7 @@
     sideFooter.appendChild(landingLink);
   }
   const version = document.querySelector('.brand small');
-  if (version) version.textContent = 'WORKSPACE · v0.14.27';
+  if (version) version.textContent = 'WORKSPACE · v0.14.28';
 
   document.querySelector('.authwrap')?.remove();
   const avatar = document.querySelector('.avatar');
@@ -34,6 +34,7 @@
   const params = new URLSearchParams(location.search);
   if (params.get('view') === 'signup' || params.get('view') === 'login') {
     document.querySelector('[data-tab="auth"]')?.click();
+    if (params.get('view') === 'login') document.getElementById('phonePasswordNumber')?.focus();
     let initialSessionChecked = false;
     window.addEventListener('yasbuildos-auth-changed', () => {
       if (!initialSessionChecked && window.yasCloud?.isSignedIn()) {
