@@ -11,8 +11,10 @@
   const redirect = location.origin + location.pathname;
   let currentUser = null;
   let profileRequired = false;
+  let onboardingPending = new URLSearchParams(location.search).get('view') === 'signup';
+  let restoredUserId = null;
   const needsProfile = user => Boolean(user?.phone && !(user.user_metadata?.first_name && user.user_metadata?.last_name && user.user_metadata?.contact_email));
-  document.querySelector('.nav').addEventListener('click', event => { const button = event.target.closest('button[data-tab]'); if (profileRequired && button && button.dataset.tab !== 'auth') { event.preventDefault(); event.stopImmediatePropagation(); el('profileMessage').textContent = 'ابتدا اطلاعات حساب را تکمیل کنید.'; } }, true);
+  document.querySelector('.nav').addEventListener('click', event => { const button = event.target.closest('button[data-tab]'); if (!button) return; if (profileRequired && button.dataset.tab !== 'auth') { event.preventDefault(); event.stopImmediatePropagation(); el('profileMessage').textContent = 'ابتدا اطلاعات حساب را تکمیل کنید.'; } else if (onboardingPending && currentUser && !['auth','plans'].includes(button.dataset.tab)) { event.preventDefault(); event.stopImmediatePropagation(); document.querySelector('[data-tab="plans"]').click(); } }, true);
   let editingId = null;
   let requestNumber = 0;
   let authPending = false;
@@ -27,6 +29,20 @@
   }
   window.yasCloud = {
     isSignedIn() { return Boolean(currentUser && !profileRequired); },
+    chooseFreePlan() {
+      if (!currentUser || profileRequired) return false;
+      onboardingPending = false;
+      const params = new URLSearchParams(location.search);
+      params.delete('view');
+      history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash);
+      document.querySelector('[data-tab="dashboard"]').click();
+      return true;
+    },
+    choosePlanScreen() {
+      if (!currentUser || profileRequired) return false;
+      document.querySelector('[data-tab="plans"]').click();
+      return true;
+    },
     async courseEnrollment(courseId) {
       const userId=currentUser?.id,revision=authRevision;if(!userId || profileRequired)throw Error('login');
       const {data,error}=await client.from('yb_course_enrollments').select('course_id').eq('user_id',userId).eq('course_id',courseId).maybeSingle();
@@ -187,7 +203,7 @@
       if (error || !data?.user || data.user.id !== userId || currentUser?.id !== userId) throw new Error('save failed');
       renderUser(data.user);
       el('profileMessage').textContent = '';
-      document.querySelector('[data-tab="dashboard"]').click();
+      document.querySelector(onboardingPending ? '[data-tab="plans"]' : '[data-tab="dashboard"]').click();
     } catch (_) { el('profileMessage').textContent = 'ثبت اطلاعات انجام نشد؛ اتصال را بررسی و دوباره تلاش کنید.'; }
     finally { el('profileSave').disabled = false; }
   });
@@ -403,8 +419,10 @@
   client.auth.onAuthStateChange((event, session) => {
     setTimeout(() => {
       renderUser(session?.user || null);
-      if ((event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && ['signup','login'].includes(new URLSearchParams(location.search).get('view')))) && session?.user && !needsProfile(session.user)) document.querySelector('[data-tab="dashboard"]').click();
-      if (event === 'SIGNED_OUT') { el('phonePasswordValue').value = ''; el('phoneNewPassword').value = ''; el('phoneNewPasswordConfirm').value = ''; el('phoneSetPasswordMessage').textContent = ''; el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPassword').value = ''; el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true; hidePasswords(); }
+      if (event === 'INITIAL_SESSION') restoredUserId = session?.user?.id || null;
+      if (event === 'SIGNED_IN' && session?.user && !needsProfile(session.user) && !(onboardingPending && restoredUserId === session.user.id)) document.querySelector(onboardingPending ? '[data-tab="plans"]' : '[data-tab="dashboard"]').click();
+      if (event === 'INITIAL_SESSION' && session?.user && !needsProfile(session.user) && new URLSearchParams(location.search).get('view') === 'login') document.querySelector('[data-tab="dashboard"]').click();
+      if (event === 'SIGNED_OUT') { restoredUserId = null; el('phonePasswordValue').value = ''; el('phoneNewPassword').value = ''; el('phoneNewPasswordConfirm').value = ''; el('phoneSetPasswordMessage').textContent = ''; el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPassword').value = ''; el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true; hidePasswords(); }
       if (event === 'PASSWORD_RECOVERY') { document.querySelector('[data-tab="auth"]').click(); el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد و تکرار کنید.'); }
     }, 0);
   });
