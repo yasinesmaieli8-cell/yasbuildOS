@@ -29,6 +29,11 @@
   }
   window.yasCloud = {
     isSignedIn() { return Boolean(currentUser && !profileRequired); },
+    setAuthMode(mode) {
+      onboardingPending = mode === 'signup';
+      const params = new URLSearchParams(location.search); params.set('view', onboardingPending ? 'signup' : 'login');
+      history.replaceState(null, '', location.pathname + '?' + params.toString() + location.hash);
+    },
     chooseFreePlan() {
       if (!currentUser || profileRequired) return false;
       onboardingPending = false;

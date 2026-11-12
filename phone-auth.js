@@ -14,7 +14,10 @@
     if (!enabled) return;
     const section = document.createElement('section');
     section.className = 'project-item';
+    section.setAttribute('data-auth-sms', '');
     section.innerHTML = '<h3>ورود یا ثبت‌نام با شماره موبایل</h3><p class="notice">کد یک‌بارمصرف به شماره شما پیامک می‌شود. اگر حساب ندارید، پس از تأیید کد ساخته می‌شود.</p><div class="field"><label for="otpPhone">شماره موبایل</label><input id="otpPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="۰۹۱۲۱۲۳۴۵۶۷"></div><button type="button" class="btn secondary" id="otpSend">ارسال کد</button><div class="field"><label for="otpCode">کد پیامکی</label><input id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div><button type="button" class="btn" id="otpVerify">تأیید و ورود</button><p id="otpTimer" class="otp-timer" role="status"></p><p id="otpMessage" class="project-message" role="status" aria-live="polite"></p>';
+    section.querySelector('h3').textContent = host.dataset.authMode === 'signup' ? 'ثبت‌نام با شماره موبایل' : 'ورود با کد پیامکی';
+    section.querySelector('p').textContent = host.dataset.authMode === 'signup' ? 'کد یک‌بارمصرف برای ساخت حساب به شماره شما پیامک می‌شود.' : 'کد یک‌بارمصرف به شماره حساب شما پیامک می‌شود.';
     host.prepend(section);
     const phoneInput = section.querySelector('#otpPhone'), codeInput = section.querySelector('#otpCode');
     const send = section.querySelector('#otpSend'), verify = section.querySelector('#otpVerify'), message = section.querySelector('#otpMessage');
@@ -41,7 +44,7 @@
       const phone = normalizePhone(phoneInput.value);
       if (!phone) { message.textContent = 'شماره موبایل معتبر ایران وارد کنید.'; return; }
       sentPhone = null;
-      const {error} = await client.auth.signInWithOtp({phone});
+      const {error} = await client.auth.signInWithOtp({phone, options:{shouldCreateUser:host.dataset.authMode !== 'login-sms'}});
       if (error) { if (normalizePhone(phoneInput.value) === phone) message.textContent = 'ارسال کد انجام نشد؛ شماره و وضعیت سرویس را بررسی کنید.'; return; }
       retryAfter = Date.now() + 120000; try { localStorage.setItem(timerKey, String(retryAfter)); } catch (_) {} updateTimer();
       if (normalizePhone(phoneInput.value) !== phone) { message.textContent = 'کد به شماره قبلی ارسال شد. برای شماره جدید پس از پایان زمان دوباره درخواست کنید.'; return; }
