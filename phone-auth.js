@@ -50,6 +50,7 @@
     verify.addEventListener('click', () => run(async () => {
       const phone = normalizePhone(phoneInput.value), token = normalizeCode(codeInput.value);
       if (!sentPhone || phone !== sentPhone || !token) { message.textContent = 'ابتدا کد را درخواست کنید و کد شش‌رقمی را وارد کنید.'; return; }
+      message.textContent = 'در حال بررسی کد و ورود به حساب…';
       const {error} = await client.auth.verifyOtp({phone, token, type:'sms'});
       codeInput.value = '';
       if (error) { message.textContent = 'کد نادرست یا منقضی است؛ دوباره تلاش کنید.'; return; }

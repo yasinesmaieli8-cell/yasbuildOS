@@ -9,10 +9,14 @@ async function scenario(role){
   let callback, sent=[];
   const membership=role==='owner'?[]:[{project_id:project.id,user_id:member,role,status:'active'}];
   const client={auth:{onAuthStateChange(f){callback=f}},rpc:async(name,args)=>{sent.push([name,args]);return {error:null}},from(table){return {select(){let query={eq(){return query},order:async()=>({data:table==='yb_projects'?[project]:membership,error:null}),then(resolve){resolve({data:table==='yb_project_members'?membership:[project],error:null})}};return query}}}};
-  const document={getElementById:el,createElement:element,querySelector:()=>({click(){}})};
+  const tabs={}, clicks=[];
+  const document={getElementById:el,createElement:element,querySelector:selector=>tabs[selector] ||= {...element(),click(){clicks.push(selector);this.handlers.click?.()}}};
   const window={supabase:{createClient:()=>client},budgetInputs:{cloudProjectBudget:{set(){},get(){return null}}}};
-  vm.runInNewContext(source,{document,window,location:{origin:'https://example.com',pathname:'/'},queueMicrotask,confirm:()=>true,console});
+  vm.runInNewContext(source,{document,window,location:{origin:'https://example.com',pathname:'/',search:''},setTimeout,URLSearchParams,confirm:()=>true,console});
   callback('SIGNED_IN',{user:{id:me,email:'user@example.com'}}); await new Promise(r=>setTimeout(r,10));
+  assert.ok(clicks.includes('[data-tab="dashboard"]'),'successful login opens dashboard');
+  assert.equal(el('cloudProjectList').children.length,0,'login does not wait for projects');
+  document.querySelector('[data-tab="auth"]').click(); await new Promise(r=>setTimeout(r,10));
   const card=el('cloudProjectList').children[0]; assert.ok(card,'project renders');
   const actions=card.children[3];
   if(role==='owner'){

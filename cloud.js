@@ -102,7 +102,6 @@
       el(prefix + 'CloudMessage').textContent = '';
     }
     resetProject();
-    if (user && !profileRequired) loadProjects();
     window.dispatchEvent?.(new Event('yasbuildos-auth-changed'));
   }
   async function authAction(action) {
@@ -402,12 +401,15 @@
     finally { projectSavePending=false;el('cloudProjectSave').disabled = false; }
   });
   client.auth.onAuthStateChange((event, session) => {
-    queueMicrotask(() => {
+    setTimeout(() => {
       renderUser(session?.user || null);
-      if (event === 'SIGNED_IN' && session?.user && !needsProfile(session.user)) document.querySelector('[data-tab="dashboard"]').click();
+      if ((event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && ['signup','login'].includes(new URLSearchParams(location.search).get('view')))) && session?.user && !needsProfile(session.user)) document.querySelector('[data-tab="dashboard"]').click();
       if (event === 'SIGNED_OUT') { el('phonePasswordValue').value = ''; el('phoneNewPassword').value = ''; el('phoneNewPasswordConfirm').value = ''; el('phoneSetPasswordMessage').textContent = ''; el('cloudPasswordChange').hidden = true; el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPassword').value = ''; el('cloudPasswordConfirm').value = ''; el('cloudConfirmField').hidden = true; hidePasswords(); }
       if (event === 'PASSWORD_RECOVERY') { document.querySelector('[data-tab="auth"]').click(); el('cloudNewPassword').value = ''; el('cloudNewPasswordConfirm').value = ''; el('cloudPasswordChange').hidden = false; message('گذرواژه جدید را در قسمت زیر وارد و تکرار کنید.'); }
-    });
+    }, 0);
+  });
+  document.querySelector('[data-tab="auth"]').addEventListener('click', () => {
+    if (currentUser && !profileRequired) loadProjects();
   });
   el('cloudPasswordChange').addEventListener('submit', async event => {
     event.preventDefault(); if(passwordChangePending)return; const password = el('cloudNewPassword').value;
