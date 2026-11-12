@@ -31,12 +31,14 @@
     isSignedIn() { return Boolean(currentUser && !profileRequired); },
     setAuthMode(mode) {
       onboardingPending = mode === 'signup';
+      if (onboardingPending) window.yasSignupGate?.setStage('account');
       const params = new URLSearchParams(location.search); params.set('view', onboardingPending ? 'signup' : 'login');
       history.replaceState(null, '', location.pathname + '?' + params.toString() + location.hash);
     },
     chooseFreePlan() {
       if (!currentUser || profileRequired) return false;
       onboardingPending = false;
+      window.yasSignupGate?.setStage('open');
       const params = new URLSearchParams(location.search);
       params.delete('view');
       history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash);
@@ -99,6 +101,7 @@
     if ((currentUser?.id || null) !== (user?.id || null)) authRevision++;
     currentUser = user;
     profileRequired = needsProfile(user);
+    if (window.yasSignupGate?.isActive()) window.yasSignupGate.setStage(!user || profileRequired ? 'account' : onboardingPending ? 'plan' : 'open');
     el('cloudProfileForm').hidden = !profileRequired;
     if (profileRequired) {
       el('profileFirst').value = user.user_metadata?.first_name || '';

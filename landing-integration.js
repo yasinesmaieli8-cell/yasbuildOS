@@ -10,7 +10,7 @@
     sideFooter.appendChild(landingLink);
   }
   const version = document.querySelector('.brand small');
-  if (version) version.textContent = 'WORKSPACE · v0.14.31';
+  if (version) version.textContent = 'WORKSPACE · v0.14.32';
 
   document.querySelector('.authwrap')?.remove();
   const avatar = document.querySelector('.avatar');

@@ -14,23 +14,27 @@ async function setup() {
   const document={getElementById:el, createElement:element, querySelector:selector => tabs[selector] ||= {...element(),click(){clicks.push(selector);this.handlers.click?.()}}};
   let callback;
   const client={auth:{onAuthStateChange(handler){callback=handler},async updateUser({data}){return {data:{user:{id:'user-1',phone:'+989000000000',user_metadata:data}},error:null}}}};
-  const window={supabase:{createClient:()=>client}};
+  const gate={stage:'account',isActive(){return this.stage!=='open'},setStage(stage){this.stage=stage}};
+  const window={supabase:{createClient:()=>client},yasSignupGate:gate};
   const location={origin:'https://example.com',pathname:'/app.html',search:'?view=signup',hash:''};
   const history={replaceState(_state,_title,url){location.search=url.includes('?')?'?'+url.split('?')[1]:''}};
   vm.runInNewContext(source,{document,window,location,history,setTimeout,URLSearchParams,confirm:()=>true,console});
   const emit=async(event,user)=>{callback(event,{user});await new Promise(resolve=>setTimeout(resolve,10));};
-  return {el,clicks,window,emit};
+  return {el,clicks,window,emit,gate};
 }
 
 const newUser = await setup();
 await newUser.emit('SIGNED_IN',{id:'user-1',phone:'+989000000000',user_metadata:{}});
 assert.ok(newUser.clicks.includes('[data-tab="auth"]'),'new phone account must complete its profile');
+assert.equal(newUser.gate.stage,'account');
 assert.equal(newUser.window.yasCloud.chooseFreePlan(),false,'plan requires a completed profile');
 newUser.el('profileFirst').value='نام'; newUser.el('profileLast').value='نام خانوادگی'; newUser.el('profileEmail').value='user@example.com';
 await newUser.el('cloudProfileForm').handlers.submit({preventDefault(){}});
 assert.equal(newUser.clicks.at(-1),'[data-tab="plans"]','completed registration opens plan selection');
+assert.equal(newUser.gate.stage,'plan');
 assert.equal(newUser.window.yasCloud.chooseFreePlan(),true);
 assert.equal(newUser.clicks.at(-1),'[data-tab="dashboard"]','free plan opens dashboard');
+assert.equal(newUser.gate.stage,'open');
 
 const existing = await setup();
 const existingUser={id:'user-1',phone:'+989000000000',user_metadata:{first_name:'نام',last_name:'نام خانوادگی',contact_email:'user@example.com'}};
